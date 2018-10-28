@@ -2,6 +2,7 @@
 /* eslint-disable  no-console */
 
 const Alexa = require('ask-sdk');
+const AWS = require('aws-sdk');
 
 // const GetNewFactHandler = {
 //   canHandle(handlerInput) {
@@ -187,7 +188,7 @@ const GetSchoolEventDayHandler = {
     if (eventCounter == 0){
       return handlerInput.responseBuilder
         .speak("no events coming up today")
-        .reprompt()
+        .reprompt("no events coming up today")
         .getResponse()
     }
     else {
@@ -200,27 +201,29 @@ const GetSchoolEventDayHandler = {
   },
 };
 
-const SKILL_NAME = 'Space Facts';
-const GET_FACT_MESSAGE = 'Here\'s your fact: ';
-const HELP_MESSAGE = 'You can say tell me a space fact, or, you can say exit... What can I help you with?';
-const HELP_REPROMPT = 'What can I help you with?';
-const STOP_MESSAGE = 'Goodbye!';
+const setAssignmentReminderHandler = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'SetAssignmentIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let event = {
+      _assignment: request.intent.slots.assignment.value,
+      _class: request.intent.slots.class.value,
+      _date: request.intent.slots.date.value
+    }
 
-const data = [
-  'A year on Mercury is just 88 days long.',
-  'Despite being farther from the Sun, Venus experiences higher temperatures than Mercury.',
-  'Venus rotates counter-clockwise, possibly because of a collision in the past with an asteroid.',
-  'On Mars, the Sun appears about half the size as it does on Earth.',
-  'Earth is the only planet not named after a god.',
-  'Jupiter has the shortest day of all the planets.',
-  'The Milky Way galaxy will collide with the Andromeda Galaxy in about 5 billion years.',
-  'The Sun contains 99.86% of the mass in the Solar System.',
-  'The Sun is an almost perfect sphere.',
-  'A total solar eclipse can happen once every 1 to 2 years. This makes them a rare event.',
-  'Saturn radiates two and a half times more energy into space than it receives from the sun.',
-  'The temperature inside the Sun can reach 15 million degrees Celsius.',
-  'The Moon is moving approximately 3.8 cm away from our planet every year.',
-];
+    setAssignment(event);
+
+    return handlerInput.responseBuilder
+          .speak("your assignment has been recorded")
+          .reprompt("your assignment has been recorded")
+          .getResponse();
+
+  }
+};
 
 function computeDifference(date) {
   let currentDate = Date.now();
@@ -257,6 +260,33 @@ var FootballGames =
   }
 ]
 
+var documentClient = new AWS.DynamoDB.DocumentClient();
+
+function setAssignment(event, context, callback){
+  
+  var params = {
+    Item: {
+      Name: event._class,
+      assignment: event._assignment,
+      assignmentDate: event._date,
+      exam: "none",
+      examDate:"none"
+    },
+    TableName: "Courses"
+  };
+  
+  documentClient.put(params, function(err, data){
+    if (err){
+      callback(err, null);
+    }
+    else {
+      callback(err, data);
+    }
+  });
+}
+
+
+
 const skillBuilder = Alexa.SkillBuilders.standard();
 
 
@@ -268,7 +298,8 @@ exports.handler = skillBuilder
     LaunchRequesHandler,
     GetSchoolEventMonthHandler,
     GetSchoolEventWeekHandler,
-    GetSchoolEventDayHandler
+    GetSchoolEventDayHandler,
+    setAssignmentReminderHandler
   )
   .addErrorHandlers(ErrorHandler)
   .lambda();
