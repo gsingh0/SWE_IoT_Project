@@ -1,28 +1,6 @@
-/* eslint-disable  func-names */
-/* eslint-disable  no-console */
 
 const Alexa = require('ask-sdk');
 const AWS = require('aws-sdk');
-
-// const GetNewFactHandler = {
-//   canHandle(handlerInput) {
-//     const request = handlerInput.requestEnvelope.request;
-//     return request.type === 'LaunchRequest'
-//       || (request.type === 'IntentRequest'
-//         && request.intent.name === 'GetNewFactIntent');
-//   },
-//   handle(handlerInput) {
-//     const factArr = data;
-//     const factIndex = Math.floor(Math.random() * factArr.length);
-//     const randomFact = factArr[factIndex];
-//     const speechOutput = GET_FACT_MESSAGE + randomFact;
-
-//     return handlerInput.responseBuilder
-//       .speak(speechOutput)
-//       .withSimpleCard(SKILL_NAME, randomFact)
-//       .getResponse();
-//   },
-// };
 
 const HelpHandler = {
   canHandle(handlerInput) {
@@ -210,9 +188,15 @@ const setAssignmentReminderHandler = {
   handle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
     let event = {
-      _assignment: request.intent.slots.assignment.value,
-      _class: request.intent.slots.class.value,
-      _date: request.intent.slots.date.value
+      Name: newClass.Name,
+      exam: newClass.exam,
+      examDate: newClass.examDate,
+      homework: newClass.homework,
+      homeworkDate: newClass.homeworkDate,
+      otherAssignment: newClass.otherAssignment,
+      otherAssignmentDate: newClass.otherAssignmentDate,
+      quiz: newClass.quiz,
+      quizDate: newClass.quizDate
     }
 
     setAssignment(event);
@@ -224,6 +208,81 @@ const setAssignmentReminderHandler = {
 
   }
 };
+
+const setCurrentSemesterClasses = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+            && request.intent.name === 'setCurrentSemesterClassIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+
+    let newClass = {
+      Name: request.intent.slots.className.value,
+      assignments: [
+        {
+          date: 'none',
+          name: 'none'
+        },
+        {
+          date: 'none',
+          name: 'none'
+        },
+        {
+          date: 'none',
+          name: 'none'
+        }
+      ]
+    }
+
+    setClass(newClass);
+
+    return handlerInput.responseBuilder
+            .speak("your class has been registered into your current semester schedule")
+            .reprompt("your class has been registered into your current semester schedule")
+            .getResponse();
+  }
+}
+
+const removeCurrentSemesterClasses = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'removeCurrentSemesterIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+
+    let Name = request.intent.slots.name.value;
+
+    deleteCurrentSemesterClass(Name);
+
+    return handlerInput.responseBuilder
+            .speak(Name + "has been deleted from your current semester schedule")
+            .reprompt(Name + "has been deleted from your current semester schedule")
+            .getResponse();
+  }
+}
+
+const practiceIntent = {
+  canHandle(handlerInput){
+    let request = request.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'practiceIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let list;
+
+    list = getAssignmentList(request.intent.slots.name.value);
+
+    return handlerInput.responseBuilder
+            .speak("heres the list: " + list)
+            .reprompt("intent called" + list)
+            .getResponse();
+  }
+}
+
+//---------------------------------------------------------------------------------------------------------
 
 function computeDifference(date) {
   let currentDate = Date.now();
@@ -246,8 +305,6 @@ function computeMonthDifference(date){
   
 }
 
-
-
 var FootballGames = 
 [
   {
@@ -260,17 +317,41 @@ var FootballGames =
   }
 ]
 
+//-----------------------------------------------------------------------------------------------------------
 var documentClient = new AWS.DynamoDB.DocumentClient();
 
-function setAssignment(event, context, callback){
-  
+function getAssignmentList(className, context, callback){
+  let response;
+  documentClient.get(className, function(err, data){
+    if (err){
+      response = 'no response';
+      callback(err, null);
+    }
+    else {
+      response = data;
+      callback(err, data);
+    }
+
+    return response;
+  });
+}
+
+function deleteCurrentSemesterClass(className, context, callback) {
+  documentClient.delete(className, function(err, data){
+    if (err){
+      callback(err, null);
+    }
+    else {
+      callback(err, data);
+    }
+  });
+}
+
+function setAssignment(event, context, callback){ 
   var params = {
     Item: {
-      Name: event._class,
-      assignment: event._assignment,
-      assignmentDate: event._date,
-      exam: "none",
-      examDate:"none"
+      Name: newClass.Name,
+      assignments: event.assignments
     },
     TableName: "Courses"
   };
@@ -285,7 +366,35 @@ function setAssignment(event, context, callback){
   });
 }
 
+function setClass(newClass, context, callback){
+ let params = {
+   Item: {
+     Name: newClass.Name,
+     exam: newClass.exam,
+     examDate: newClass.examDate,
+     homework: newClass.homework,
+     homeworkDate: newClass.homeworkDate,
+     otherAssignment: newClass.otherAssignment,
+     otherAssignmentDate: newClass.otherAssignmentDate,
+     quiz: newClass.quiz,
+     quizDate: newClass.quizDate
+   },
 
+   TableName: 'Courses'
+ };
+ 
+ documentClient.put(params, function(err, data){
+   if (err){
+     callback(err, null);
+   }
+   else {
+     callback(err, data);
+   }
+
+ });
+}
+
+//-----------------------------------------------------------------------------------------------------------
 
 const skillBuilder = Alexa.SkillBuilders.standard();
 
