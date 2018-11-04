@@ -30,6 +30,20 @@ const ExitHandler = {
   },
 };
 
+const ErrorHandler = {
+  canHandle() {
+    return false;
+  },
+  handle(handlerInput, error) {
+    console.log(`Error handled: ${error.message}`);
+
+    return handlerInput.responseBuilder
+      .speak('Sorry, an error occurred.')
+      .reprompt('Sorry, an error occurred.')
+      .getResponse();
+  },
+};
+
 const SessionEndedRequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -165,36 +179,6 @@ const GetSchoolEventDayHandler = {
   },
 };
 
-const setAssignmentReminderHandler = {
-  canHandle(handlerInput) {
-    const request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest'
-        && request.intent.name === 'SetAssignmentIntent';
-  },
-  handle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    let event = {
-      Name: newClass.Name,
-      exam: newClass.exam,
-      examDate: newClass.examDate,
-      homework: newClass.homework,
-      homeworkDate: newClass.homeworkDate,
-      otherAssignment: newClass.otherAssignment,
-      otherAssignmentDate: newClass.otherAssignmentDate,
-      quiz: newClass.quiz,
-      quizDate: newClass.quizDate
-    }
-
-    setAssignment(event);
-
-    return handlerInput.responseBuilder
-          .speak("your assignment has been recorded")
-          .reprompt("your assignment has been recorded")
-          .getResponse();
-
-  }
-};
-
 const setCurrentSemesterClasses = {
   canHandle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
@@ -251,18 +235,18 @@ const removeCurrentSemesterClasses = {
 }
 
 //set assignment reminder
-const practiceIntentHandler = {
+const setAssignmentReminderHandler = {
   canHandle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'PracticeIntent';
+    return request.type === 'IntentRequest' && request.intent.name === 'SetAssignmentReminderIntent';
   },
-  handle(handlerInput){
+  async handle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
     let realResponse = '';
+    let responseReceived = false;
     let promise = new Promise(function(resolve, reject){
       getAssignmentList(request.intent.slots.className.value, function(data) {
         let response = '';
-        console.log("Received assignment list");
         let assignments = data.Item.assignments;
         let emptySlot = 0;
         let index;
@@ -274,31 +258,24 @@ const practiceIntentHandler = {
           }
         }
   
-        console.log("empty Slot: "+ emptySlot);
-        console.log("Index: "+ index);
-  
-        if (emptySlot > 0){
-          reminderList[index].date = request.intent.slots.date.value;
+        if (emptySlot > 0){ 
           reminderList[index].name = request.intent.slots.assignment.value;
-          console.log("Reminder List");
-          for (let i = 0; i < reminderList.length; i++){
-            console.log(reminderList[i].name);
-            console.log(reminderList[i].date);
-            console.log();
-          }
+          reminderList[index].date = request.intent.slots.date.value;     
           let event = {
             Name: request.intent.slots.className.value,
             assignments: reminderList
           }
   
           setAssignment(event, function(){
-            response = "Your reminder for " + request.intent.slots.assignment.value + " on " + request.intent.slots.date.value + "has been stored";
+            response = "Your reminder for " + request.intent.slots.assignment.value + " on " + request.intent.slots.date.value + " has been set";
+            responseReceived = true;
             resolve(response);
           });
         }
         else {
           response = "The reminders for this class is full. To remove a reminder, please call the remove assignment reminder intent then proceed to" +
                       "add this reminder";
+          responseReceived = true;
           resolve(response);
         }
   
@@ -307,32 +284,38 @@ const practiceIntentHandler = {
 
     // let list2 = request.intent.slots.className.value;
 
-    promise.then(
+    await promise.then(
       function(result) {
         realResponse = result;
         } 
     )
 
-    return handlerInput.responseBuilder
-            .speak("ok"+result)
-            .reprompt("ok"+result)
+    if(responseReceived == true){
+      return handlerInput.responseBuilder
+            .speak(realResponse)
+            .reprompt(realResponse)
             .getResponse();
+    }
   }
 };
 
-const ErrorHandler = {
-  canHandle() {
-    return false;
+const getAssignmentReminderDayHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'GetAssignmentReminderDayIntent';
   },
-  handle(handlerInput, error) {
-    console.log(`Error handled: ${error.message}`);
+  handle(handlerInput){
+
+
+
 
     return handlerInput.responseBuilder
-      .speak('Sorry, an error occurred.')
-      .reprompt('Sorry, an error occurred.')
-      .getResponse();
-  },
-};
+            .speak("response")
+            .reprompt("response")
+            .getResponse();
+  }
+}
+
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -470,7 +453,7 @@ exports.handler = skillBuilder
     GetSchoolEventWeekHandler,
     GetSchoolEventDayHandler,
     setAssignmentReminderHandler,
-    practiceIntentHandler
+    getAssignmentReminderDayHandler
   )
   .addErrorHandlers(ErrorHandler)
   .lambda();
