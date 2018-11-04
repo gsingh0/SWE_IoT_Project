@@ -42,20 +42,6 @@ const SessionEndedRequestHandler = {
   },
 };
 
-const ErrorHandler = {
-  canHandle() {
-    return true;
-  },
-  handle(handlerInput, error) {
-    console.log(`Error handled: ${error.message}`);
-
-    return handlerInput.responseBuilder
-      .speak('Sorry, an error occurred.')
-      .reprompt('Sorry, an error occurred.')
-      .getResponse();
-  },
-};
-
 const LaunchRequesHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -94,7 +80,7 @@ const GetSchoolEventMonthHandler = {
     if (eventCounter == 0){
       return handlerInput.responseBuilder
         .speak("no events coming up this month")
-        .reprompt()
+        .reprompt("no events coming up this month")
         .getResponse()
     }
     else {
@@ -130,7 +116,7 @@ const GetSchoolEventWeekHandler = {
     if (eventCounter == 0){
       return handlerInput.responseBuilder
         .speak("no events coming up this week")
-        .reprompt()
+        .reprompt("no events coming up this week")
         .getResponse()
     }
     else {
@@ -264,23 +250,89 @@ const removeCurrentSemesterClasses = {
   }
 }
 
-const practiceIntent = {
+//set assignment reminder
+const practiceIntentHandler = {
   canHandle(handlerInput){
-    let request = request.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'practiceIntent';
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'PracticeIntent';
   },
   handle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
-    let list;
+    let realResponse = '';
+    let promise = new Promise(function(resolve, reject){
+      getAssignmentList(request.intent.slots.className.value, function(data) {
+        let response = '';
+        console.log("Received assignment list");
+        let assignments = data.Item.assignments;
+        let emptySlot = 0;
+        let index;
+        let reminderList = assignments;
+        for(let i = assignments.length-1; i >=0; i--){
+          if (assignments[i].date === 'none' && assignments[i].name === 'none'){
+            emptySlot++;
+            index = i;
+          }
+        }
+  
+        console.log("empty Slot: "+ emptySlot);
+        console.log("Index: "+ index);
+  
+        if (emptySlot > 0){
+          reminderList[index].date = request.intent.slots.date.value;
+          reminderList[index].name = request.intent.slots.assignment.value;
+          console.log("Reminder List");
+          for (let i = 0; i < reminderList.length; i++){
+            console.log(reminderList[i].name);
+            console.log(reminderList[i].date);
+            console.log();
+          }
+          let event = {
+            Name: request.intent.slots.className.value,
+            assignments: reminderList
+          }
+  
+          setAssignment(event, function(){
+            response = "Your reminder for " + request.intent.slots.assignment.value + " on " + request.intent.slots.date.value + "has been stored";
+            resolve(response);
+          });
+        }
+        else {
+          response = "The reminders for this class is full. To remove a reminder, please call the remove assignment reminder intent then proceed to" +
+                      "add this reminder";
+          resolve(response);
+        }
+  
+      });
+    });
 
-    list = getAssignmentList(request.intent.slots.name.value);
+    // let list2 = request.intent.slots.className.value;
+
+    promise.then(
+      function(result) {
+        realResponse = result;
+        } 
+    )
 
     return handlerInput.responseBuilder
-            .speak("heres the list: " + list)
-            .reprompt("intent called" + list)
+            .speak("ok"+result)
+            .reprompt("ok"+result)
             .getResponse();
   }
-}
+};
+
+const ErrorHandler = {
+  canHandle() {
+    return false;
+  },
+  handle(handlerInput, error) {
+    console.log(`Error handled: ${error.message}`);
+
+    return handlerInput.responseBuilder
+      .speak('Sorry, an error occurred.')
+      .reprompt('Sorry, an error occurred.')
+      .getResponse();
+  },
+};
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -309,54 +361,63 @@ var FootballGames =
 [
   {
     game: "Georgia State University vs Georgia Southern University at October 27th, ",
-    time: "10/24/2018"
+    time: "12/24/2018"
   },
   {
     game: "Georgia State University vs University of Georgia at December 15th,",
-    time: "10/21/2018"
+    time: "12/21/2018"
   }
 ]
 
 //-----------------------------------------------------------------------------------------------------------
 var documentClient = new AWS.DynamoDB.DocumentClient();
 
-function getAssignmentList(className, context, callback){
-  let response;
-  documentClient.get(className, function(err, data){
+function getAssignmentList(className, callback){
+  let params  = {
+    Key: {
+      Name: className
+    },
+    AttributesToGet: [
+      'assignments'
+    ],
+
+    TableName: "Courses"
+  }
+
+  documentClient.get(params, function(err, data){
     if (err){
-      response = 'no response';
-      callback(err, null);
+      console.log(err);
     }
     else {
-      response = data;
-      callback(err, data);
+      console.log(data);
+      callback(data);
     }
 
-    return response;
   });
+
 }
 
-function deleteCurrentSemesterClass(className, context, callback) {
-  documentClient.delete(className, function(err, data){
-    if (err){
-      callback(err, null);
-    }
-    else {
-      callback(err, data);
-    }
-  });
-}
-
-function setAssignment(event, context, callback){ 
+function setAssignment(event, callback){ 
   var params = {
     Item: {
-      Name: newClass.Name,
+      Name: event.Name,
       assignments: event.assignments
     },
     TableName: "Courses"
   };
   
   documentClient.put(params, function(err, data){
+    if (err){
+      console.log(err);
+    }
+    else {
+      callback();
+    }
+  });
+}
+
+function deleteCurrentSemesterClass(className, context, callback) {
+  documentClient.delete(className, function(err, data){
     if (err){
       callback(err, null);
     }
@@ -408,7 +469,8 @@ exports.handler = skillBuilder
     GetSchoolEventMonthHandler,
     GetSchoolEventWeekHandler,
     GetSchoolEventDayHandler,
-    setAssignmentReminderHandler
+    setAssignmentReminderHandler,
+    practiceIntentHandler
   )
   .addErrorHandlers(ErrorHandler)
   .lambda();
