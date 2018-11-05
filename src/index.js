@@ -304,14 +304,45 @@ const getAssignmentReminderDayHandler = {
     let request = handlerInput.requestEnvelope.request;
     return request.type === 'IntentRequest' && request.intent.name === 'GetAssignmentReminderDayIntent';
   },
-  handle(handlerInput){
+  async handle(handlerInput){
+    let response = 'You have a ';
+    let failedResponse = response;
+    let iteration = 0;
+    
+    let promise = new Promise(async function(resolve, reject){
+        await getAssignmentRemindersToday(function(length, data){
+        iteration++;
+        let assignments = data.Item.assignments;
+        for (let i = 0; i < assignments.length; i++){
+          let difference = computeDifference(assignments[i].date);
+          if(difference > 0 && difference <=1){
+            console.log("Reading same day...")
+            response = response + data.Item.Name + ' ' + assignments[i].name + ', '
+            console.log(response);
+          }
+        }
 
+        if (iteration == length){
+          console.log("reading i... " + response);
+          resolve(response);
+        }
+      });
+    });
 
-
-
+    await promise.then(
+      function(result){
+        if (result === failedResponse){
+          response = 'You have no assignments or exams due today'
+        }
+        else {
+          response = result + ' today';
+        }
+      }
+    )
+  
     return handlerInput.responseBuilder
-            .speak("response")
-            .reprompt("response")
+            .speak(response)
+            .reprompt(response)
             .getResponse();
   }
 }
@@ -354,6 +385,73 @@ var FootballGames =
 
 //-----------------------------------------------------------------------------------------------------------
 var documentClient = new AWS.DynamoDB.DocumentClient();
+
+let currentSemesterClasses = [
+  'software engineering',
+  'system level programming',
+  'databases',
+  'web programming'
+]
+
+function getAssignmentRemindersToday(callback){
+  let paramList = [
+    {
+      Key: {
+       Name: currentSemesterClasses[0]
+      },
+      AttributesToGet: [
+        'assignments',
+        'Name'
+      ],
+  
+      TableName: 'Courses'
+    },
+    {
+      Key: {
+       Name: currentSemesterClasses[1]
+      },
+      AttributesToGet: [
+        'assignments',
+        'Name'
+      ],
+  
+      TableName: 'Courses'
+    },
+    {
+      Key: {
+       Name: currentSemesterClasses[2]
+      },
+      AttributesToGet: [
+        'assignments',
+        'Name'
+      ],
+  
+      TableName: 'Courses'
+    },
+    {
+      Key: {
+       Name: currentSemesterClasses[3]
+      },
+      AttributesToGet: [
+        'assignments',
+        'Name'
+      ],
+  
+      TableName: 'Courses'
+    }
+  ]
+
+  for (let i =0; i < paramList.length; i++){
+    documentClient.get(paramList[i], function(err, data){
+      if (err){
+        console.log(err)
+      }
+      else {
+        callback(paramList.length,data);
+      }
+    });
+  }
+}
 
 function getAssignmentList(className, callback){
   let params  = {
