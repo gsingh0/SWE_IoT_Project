@@ -10,8 +10,8 @@ const HelpHandler = {
   },
   handle(handlerInput) {
     return handlerInput.responseBuilder
-      .speak(HELP_MESSAGE)
-      .reprompt(HELP_REPROMPT)
+      .speak("Panther can set assignment reminders, set class list, get upcoming events, tell professors of class, and get professor reviews")
+      .reprompt("Panther can set assignment reminders, set class list, get upcoming events, tell professors of class,and get professor reviews")
       .getResponse();
   },
 };
@@ -367,6 +367,144 @@ var FootballGames =
     game: "Georgia State University vs University of Georgia at December 15th,",
     time: "12/21/2018"
   }
+]
+//-----------------------------------------------------------------------------------------------------------
+
+//This is a intent to see which professor teaches a class.
+const GetClassProfessor = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'ClassProfessor';
+  },
+  handle(handlerInput) {
+    let events = "Here are the list of Professors for this class: ";
+    let eventCounter = 0;
+    for (let i = 0; i < Professors.length; i++){
+      
+      if (difference <= 1 && difference > 0){
+        events = events + Professors[i].professor;
+        eventCounter++;
+      }
+    }
+    
+    events = events + "...say repeat today to repeat the professor list";
+    
+    if (eventCounter == 0){
+      return handlerInput.responseBuilder
+        .speak("no professors found")
+        .reprompt("no professors found")
+        .getResponse()
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(events)
+        .reprompt("say repeat today to repeat the professor list")
+        .getResponse()
+    }
+    
+  },
+};
+
+var Professors = 
+[
+{
+  professor: "Jaman Bhola",
+  class: "Software Engineering"
+},
+{
+  professor: "William Gregory Johnson,",
+  class: "Software Engineering"
+}
+]
+
+
+//this is an intent to get review for Professor Bhola
+const GetBholaReview = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'GetBholaReview';
+  },
+  handle(handlerInput) {
+    let events = "This is what students are saying about Bhola: ";
+    let eventCounter = 0;
+    for (let i = 0; i < BholaReview.length; i++){
+      
+      if (difference <= 1 && difference > 0){
+        events = events + BholaReview[i].name;
+        eventCounter++;
+      }
+    }
+    
+    events = events + "...say repeat today to repeat the review";
+    
+    if (eventCounter == 0){
+      return handlerInput.responseBuilder
+        .speak("no professor found")
+        .reprompt("no professor found")
+        .getResponse()
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(events)
+        .reprompt("say repeat today to repeat the review")
+        .getResponse()
+    }
+    
+  },
+};
+
+var BholaReview = 
+[
+{
+  name: "Jaman Bhola, ",
+  review: "Fear for your soul"
+}
+]
+
+// this is an intent to get Professor Johnson Reviews
+const GetJohnsonReview = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'GetJohnsonReview';
+  },
+  handle(handlerInput) {
+    let events = "This is what students are saying about Johnson: ";
+    let eventCounter = 0;
+    for (let i = 0; i < JohnsonReview.length; i++){
+      
+      if (difference <= 1 && difference > 0){
+        events = events + JohnsonReview[i].name;
+        eventCounter++;
+      }
+    }
+    
+    events = events + "...say repeat today to repeat the review";
+    
+    if (eventCounter == 0){
+      return handlerInput.responseBuilder
+        .speak("no professor found")
+        .reprompt("no professor found")
+        .getResponse()
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(events)
+        .reprompt("say repeat today to repeat the review")
+        .getResponse()
+    }
+    
+  },
+};
+
+var JohnsonReview = 
+[
+{
+  name: "William Gregory Johnson, ",
+  review: "Give everyone an A!"
+}
 ]
 
 //-----------------------------------------------------------------------------------------------------------
