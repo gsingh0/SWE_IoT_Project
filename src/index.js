@@ -520,6 +520,74 @@ var JohnsonReview =
   review: "Give everyone an A!"
 }
 ]
+//-----------------------------------------------------------------------------------------------------------
+
+// Random Fact Array
+var randomFactArr = [
+  'Chik-fil-a is located on the first floor of Student Center West',
+  'GSU has a student-run movie theater located at Student Center West on the second floor. Admission is free with a valid Georgia State University student ID',
+  'Microwaves and Vending Machinces can be found at the Student Recreation Center as well as Student Center East.',
+  'You can reserve a group study room by going to the GSU library website under the Service and Support Tab.',
+  'Parking decks on campus that are available to students all day are the decks K, N, and the top of S deck.',
+  'If you plan to park on campus, might I suggest obtaining a budget parking card from Parking and Transporation services on the second floor of Student Center West',
+  'Interested in watching Georgia Sate Athletic Events? Visit GSUStudentTickets.com for your free student ticket.',
+  'If you lose your Panther Card, you can renew one for a fee of $5. Just visit Campus Services on the second floor of Student Center West',
+  'Want to get Academic Advisement at the GSU Atlanta Campus? Visit the University Advisement Center at 25 Park Place building. Freshmen, sophomores, and juniors can visit the fourth and fifth floor for advisement.',
+  'Still don\'t know what to major in? take a major recommendation quiz at gsu.mymajors.com/quiz/'
+]
+// Function to get a random fact based on a random floor index value.
+function getFact () {
+  var randomFact = randomFactArr[Math.floor(Math.random() + randomFactArr.length)];
+}
+
+// An intent to request an random fact about GSU
+const GetRandomFact = {
+  canHandle(handlerInput) {
+      const request = handlerInput.requestEnvelope.request;
+      return request.type === 'IntentRequest'
+      && (request.intent.name === 'GetRandomFact');
+  },
+  handle(handlerInput) {
+      return handlerInput.responseBuilder
+      .speak(getFact)
+      .getResponse();
+  },
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+// Random Health Note Array
+var randomHealthArr = [
+  'Are you that unlucky bastard that has to walk long distances to your class? Don\'t forget to stay hydrated!',
+  'How much sleep are you getting? It is recommended to sleep 7 to 9 hours nightly.',
+  'Good sleep can improve your overall health and wellness and relieve stress.',
+  'Foods that are high in protein and fiber are better for you than caffeinated and sugary drinks.',
+  'Get a flu shot.',
+  'Remember to step away from your studies from time to time if you are overwhelmed.',
+  'Try to stop procrastinating. Create a schedule and stick to it.',
+  'Take advantage of the Student Recreation Center that you are paying for with your tuition and exercise! Exercise also helps with your mentality!',
+  'Don\t be afraid to ask for help',
+  'College will fly by fast, enjoy your time and practice self care!',
+]
+
+// Function to get a random Health Note
+function getHealth () {
+  var randomHealthNote = randomHealthArr[Math.floor(Math.random() + randomHealthArr.length)];
+}
+
+// An intent to request a random health note for a GSU student.
+const GetHealthNote = {
+  canHandle(handlerInput) {
+      const request = handlerInput.requestEnvelope.request;
+      return request.type === 'IntentRequest'
+      && (request.intent.name === 'GetHealthNote');
+  },
+  handle(handlerInput) {
+      return handlerInput.responseBuilder
+      .speak(getHealth)
+      .getResponse();
+  },
+};
 
 //-----------------------------------------------------------------------------------------------------------
 var documentClient = new AWS.DynamoDB.DocumentClient();
@@ -689,7 +757,13 @@ exports.handler = skillBuilder
     GetSchoolEventWeekHandler,
     GetSchoolEventDayHandler,
     setAssignmentReminderHandler,
-    getAssignmentReminderDayHandler
+    getAssignmentReminderDayHandler,
+    GetClassProfessor,
+    GetBholaReview,
+    GetJohnsonReview,
+    GetHealthNote,
+    GetRandomFact
+
   )
   .addErrorHandlers(ErrorHandler)
   .lambda();
