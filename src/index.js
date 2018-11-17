@@ -10,8 +10,10 @@ const HelpHandler = {
   },
   handle(handlerInput) {
     return handlerInput.responseBuilder
-      .speak("Panther can set assignment reminders, set class list, get upcoming events, tell professors of class, and get professor reviews")
-      .reprompt("Panther can set assignment reminders, set class list, get upcoming events, tell professors of class,and get professor reviews")
+      .speak("Say list of intents to get the list of intents for this skill. Also say, what is the utterance "+
+          "for the specified intent. This will help you use the skill correctly.")
+      .reprompt("Say list of intents to get the list of intents for this skill. Also say, what is the utterance "+
+          "for the specified intent. This will help you use the skill correctly.")
       .getResponse();
   },
 };
@@ -44,6 +46,22 @@ const ErrorHandler = {
   },
 };
 
+const FallBackHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'AMAZON.FallbackIntent';
+  },
+  handle(handlerInput){
+
+    return handlerInput.responseBuilder
+          .speak("I didn't understand your request. Say list of intents to get the list of intents for this skill. Also say, what is the utterance "+
+            "for the specified intent. This will help you use the skill correctly.")
+            .reprompt("I didn't understand your request. Say list of intents to get the list of intents for this skill. Also say, what is the utterance "+
+            "for the desired intent. This will help you use the skill correctly.")
+            .getResponse()
+  } 
+}
+
 const SessionEndedRequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -62,11 +80,10 @@ const LaunchRequesHandler = {
     return request.type === 'LaunchRequest'
   },
   handle(handlerInput) {
-    let welcomeMessage = "Welcome Panther! What can I help you with?";
 
     return handlerInput.responseBuilder
-      .speak(welcomeMessage)
-      .reprompt(welcomeMessage)
+      .speak(getRandomWelcomeMessage())
+      .reprompt(getRandomWelcomeMessage())
       .getResponse();
   },
 };
@@ -347,6 +364,93 @@ const getAssignmentReminderDayHandler = {
   }
 }
 
+const GetRandomFact = {
+  canHandle(handlerInput) {
+      const request = handlerInput.requestEnvelope.request;
+      return request.type === 'IntentRequest'
+      && (request.intent.name === 'GetRandomFact');
+  },
+  handle(handlerInput) {
+      return handlerInput.responseBuilder
+        .speak(getFact())
+        .reprompt(getFact())
+        .getResponse();
+  },
+};
+
+const GetHealthTipHandler = {
+  canHandle(handlerInput) {
+      const request = handlerInput.requestEnvelope.request;
+      return request.type === 'IntentRequest'
+      && (request.intent.name === 'GetHealthTipIntent');
+  },
+  handle(handlerInput) {
+      return handlerInput.responseBuilder
+      .speak(getHealth())
+      .reprompt(getHealth())
+      .getResponse();
+  },
+};
+
+const ListofIntentsHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'ListofIntentsIntent';
+  },
+  handle(handlerInput){
+    let listofintents = "The list of intents for this skill are: ";
+
+    for (let i = 0; i < IntentList.length; i++){
+      listofintents = listofintents + IntentList[i].name + ', ';
+    }
+
+
+    return handlerInput.responseBuilder
+          .speak(listofintents + ". To repeat this list, simply say repeat list of intents.")
+          .reprompt(listofintents + ". To repeat this list, simply say repeat list of intents.")
+          .getResponse();
+  }
+}
+
+const UtteranceListHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'UtteranceListIntent';
+  },
+  handle(handlerInput){
+    let idOfIntent;
+    let utterance = "";
+    let resolutionsPerAuthority = handlerInput.requestEnvelope.request.intent.slots.intentlist.resolutions.resolutionsPerAuthority;
+    if (resolutionsPerAuthority[0].status.code === "ER_SUCCESS_MATCH"){
+      idOfIntent = resolutionsPerAuthority[0].values[0].value.name;
+    }
+    else {
+      idOfIntent = "0";
+    }
+
+    for (let i = 0; i < IntentList.length; i++){
+      if(idOfIntent === IntentList[i].id){
+        utterance = IntentList[i].utterance;
+        break;
+      }
+    }
+
+    if (utterance.length == 0){
+        return handlerInput.responseBuilder
+        .speak("The request for that intent either does not exist or was pronounced incorrectly. Please try again to hear the utterance for an intent.")
+        .reprompt("The request for that intent either does not exist or was pronounced incorrectly. Please try again to hear the utterance for an intent.")
+        .getResponse();
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(utterance)
+        .reprompt(utterance)
+        .getResponse();
+    }
+  }
+
+}
+
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -537,22 +641,10 @@ var randomFactArr = [
 ]
 // Function to get a random fact based on a random floor index value.
 function getFact () {
-  var randomFact = randomFactArr[Math.floor(Math.random() + randomFactArr.length)];
+  return randomFactArr[Math.floor(Math.random() * randomFactArr.length)];
 }
 
-// An intent to request an random fact about GSU
-const GetRandomFact = {
-  canHandle(handlerInput) {
-      const request = handlerInput.requestEnvelope.request;
-      return request.type === 'IntentRequest'
-      && (request.intent.name === 'GetRandomFact');
-  },
-  handle(handlerInput) {
-      return handlerInput.responseBuilder
-      .speak(getFact)
-      .getResponse();
-  },
-};
+
 
 //-----------------------------------------------------------------------------------------------------------
 
@@ -572,24 +664,65 @@ var randomHealthArr = [
 
 // Function to get a random Health Note
 function getHealth () {
-  var randomHealthNote = randomHealthArr[Math.floor(Math.random() + randomHealthArr.length)];
+  return randomHealthArr[Math.floor(Math.random() * randomHealthArr.length)];
 }
 
 // An intent to request a random health note for a GSU student.
-const GetHealthNote = {
-  canHandle(handlerInput) {
-      const request = handlerInput.requestEnvelope.request;
-      return request.type === 'IntentRequest'
-      && (request.intent.name === 'GetHealthNote');
-  },
-  handle(handlerInput) {
-      return handlerInput.responseBuilder
-      .speak(getHealth)
-      .getResponse();
-  },
-};
+
 
 //-----------------------------------------------------------------------------------------------------------
+
+var welcomeMessageArray = [
+  "Welcome Panther! What can I help you with?",
+  "Welcome back Panther, would you like to hear a cool fact about Georgia State? Just say fact to hear something cool about GSU!",
+  "Welcome Panther, interested to hear an important health tip? Just say health and I'll tell you an important health fact!",
+  "Welcome Panther! How can I help you?"
+];
+
+function getRandomWelcomeMessage(){
+  return welcomeMessageArray[Math.floor(Math.random() * welcomeMessageArray.length)];
+}
+
+
+var IntentList = [
+  {
+    name: "School Events for the week",
+    utterance: "the utterance is: school events for this week",
+    id: '1'
+  },
+  {
+    name: "School Events for today",
+    utterance: "the utterance is: school events for today",
+    id: '2'
+  },
+  {
+    name: "School Events for this month",
+    utterance: "the utterance is: shool events for this month",
+    id: '3'
+  },
+  {
+    name: "Set assignment reminder for a class",
+    utterance: "the utterance is for example, set an exam reminder on december 15th for software engineering",
+    id: '4'
+  },
+  {
+    name: "get assignment reminders for today",
+    utterance: "the utterance is: any assignment reminders coming up today",
+    id: '5'
+  },
+  {
+    name: "fact of the day",
+    utterance: "the utterance is: tell me a random fact",
+    id: '6'
+  },
+  {
+    name: "health tip of the day",
+    utterance: "the utterance is: tell me a health tip",
+    id: '7'
+  }
+
+]
+
 var documentClient = new AWS.DynamoDB.DocumentClient();
 
 let currentSemesterClasses = [
@@ -761,8 +894,11 @@ exports.handler = skillBuilder
     GetClassProfessor,
     GetBholaReview,
     GetJohnsonReview,
-    GetHealthNote,
-    GetRandomFact
+    GetHealthTipHandler,
+    GetRandomFact,
+    FallBackHandler,
+    ListofIntentsHandler,
+    UtteranceListHandler
 
   )
   .addErrorHandlers(ErrorHandler)
