@@ -1,6 +1,7 @@
 
 const Alexa = require('ask-sdk');
 const AWS = require('aws-sdk');
+const scraper = require('./courseInfoRetrieve');
 
 const HelpHandler = {
   canHandle(handlerInput) {
@@ -349,7 +350,7 @@ const getAssignmentReminderDayHandler = {
     await promise.then(
       function(result){
         if (result === failedResponse){
-          response = 'You have no assignments or exams due today'
+          response = 'You have no assignments or exams due today lmao'
         }
         else {
           response = result + ' today';
@@ -451,6 +452,281 @@ const UtteranceListHandler = {
 
 }
 
+const CourseScraperHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'CourseScraperIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let courseAbbr = request.intent.slots.courseAbbr.value;
+    let term = request.intent.slots.term.value;
+    let sectionID = request.intent.slots.sectionID.value;
+    let courseNumber = request.intent.slots.courseNumber.value;
+
+    let promise = new Promise(function(resolve, reject){
+        if (term === 'course'){
+          term = 'future';
+        }
+
+        resolve(term);
+      }).then(function(newTerm){
+          scraper.courseInfoRetrieve(courseAbbr, courseNumber, sectionID, newTerm).then(function(data){
+            console.log("scraped info: " + data);
+          });
+      });
+
+    return handlerInput.responseBuilder
+            .speak("hello")
+            .reprompt("hello")
+            .getResponse();
+  }
+}
+
+const AllEventsReminderDayHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'AllEventsReminderIntent';
+  },
+  async handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let assignmentsToday = "";
+    let classesToday = "";
+    let generalRemindersToday = "";
+    let response = "";
+    let iteration = 0;
+    let iteration2 = 0;
+
+    let promise = new Promise(async function(resolve, reject){
+      await getClassDetails(async function(length, data){
+        let assignments = data.Item.assignments;
+        assignmentsToday = assignmentsToday + await getAssignmentsToday(assignments, data);
+  
+        let classTime = data.Item.classTime;
+        classesToday = classesToday + await getClassesToday(classTime, data);
+
+
+
+        iteration = await iterate(iteration);
+        
+        await iterateToResolve(iteration, length, function(){
+          
+          let todaysList = {
+            assignmentsToday: assignmentsToday,
+            classesToday: classesToday
+          }
+  
+          resolve(todaysList);
+        });
+      });
+    }).then(function(todaysList){
+      console.log("assignments today are: "+todaysList.assignmentsToday);
+      console.log("classes today are: "+todaysList.classesToday);
+
+      assignmentsToday = "assignments today are: "+ todaysList.assignmentsToday;
+      classesToday = "classes today are: "+ todaysList.classesToday;
+    });
+
+    let promise2 = new Promise(async function(resolve, reject){
+      console.log("gigglybob");
+      await getGeneralReminderItems(async function(length, data){
+        let reminderDetails = data.Item.reminderDetails;
+        generalRemindersToday = generalRemindersToday + await getGeneralRemindersToday(reminderDetails, data);
+
+        iteration2 = await iterate(iteration2);
+
+        await iterateToResolve(iteration2, length, function(){
+          resolve(generalRemindersToday);
+        });
+      });
+    }).then(function(resolvedGeneralReminders){
+        console.log("general Reminders Today:"+result);
+        generalRemindersToday = "other reminders today are: " + resolvedGeneralReminders; 
+    });
+
+    let promise3 = new Promise(function(resolve, reject){
+      
+    });
+
+    
+    return handlerInput.responseBuilder
+          .speak("hello")
+          .reprompt("hello")
+          .getResponse();
+
+  }
+}
+
+function getGeneralRemindersToday(reminderDetails, data){
+  let generalRemindersToday = "";
+  console.log("date: " + reminderDetails.date);
+  let difference = computeDifference(reminderDetails.date);
+  if (difference > 0 && difference <= 1.5){
+    generalRemindersToday = reminderDetails.reminder + ', ';
+  }
+
+  return generalRemindersToday;
+}
+
+let reminderNumList = [0, 1, 2, 3, 4]
+
+function getGeneralReminderItems(callback){
+  let paramList = [
+    {
+      Key: {
+        reminderNum: reminderNumList[0]
+      },
+      AttributesToGet: [
+        'reminderDetails'
+      ],
+
+      TableName: 'GeneralReminders'
+    },
+    {
+      Key: {
+        reminderNum: reminderNumList[1]
+      },
+      AttributesToGet: [
+        'reminderDetails'
+      ],
+
+      TableName: 'GeneralReminders'
+    },
+    {
+      Key: {
+        reminderNum: reminderNumList[2]
+      },
+      AttributesToGet: [
+        'reminderDetails'
+      ],
+
+      TableName: 'GeneralReminders'
+    },
+    {
+      Key: {
+        reminderNum: reminderNumList[3]
+      },
+      AttributesToGet: [
+        'reminderDetails'
+      ],
+
+      TableName: 'GeneralReminders'
+    },
+    {
+      Key: {
+        reminderNum: reminderNumList[4]
+      },
+      AttributesToGet: [
+        'reminderDetails'
+      ],
+
+      TableName: 'GeneralReminders'
+    },
+  ];
+
+  for (let i = 0; i < paramList.length; i++){
+    documentClient.get(paramList[i], function(err, data){
+      if (err){
+        console.log(err);
+      }
+      else {
+        callback(paramList.length, data);
+      }
+    });
+  }
+}
+
+/** 
+ * checks to see if the last item in the database has been read (which is when iteration = 4). 
+ * Once its read, it calls callback function that resolves the result.
+ * @param: iteration: number of times database has been queried 
+ * @param: length: length of the current semester classes (inherently 4)
+ * @param: callback: function that is called when iteration = 4. Resolves the result 
+ * @return none
+ */
+function iterateToResolve(iteration, length, callback){
+  console.log("reading iterateToResolve...");
+  console.log("iteration: " + iteration);
+  if (iteration == length){
+    callback();
+  }
+}
+
+/**
+ * adds 1 to iteration after every time database has been queried
+ * @param: iteration: number of times database has been queried 
+ * @return: integer value (iteration + 1)
+ */
+
+function iterate(iteration){
+  iteration = iteration + 1;
+  return iteration;
+}
+
+/**
+ * reads through every assignment reminder in the assignments array to see if a reminder is today.
+ * @param {*} assignments: this is a field of a database item (item example: 'software engineering'). This attribute
+ *                          is an array of objects with each object having 2 attributes: name and date. The default size of this array is 3.
+ * @param {*} data: the object that is returned from documentClient.get()...
+ * @return: returns a string value that reads the name of the class and the assignment type for that reminder
+ */
+function getAssignmentsToday(assignments, data){
+  console.log("reading getAssignmentsToday...");
+  let assignmentsToday = "";
+  for (let i = 0; i < assignments.length; i++){
+    let difference = computeDifference(assignments[i].date);
+    if(difference > 0 && difference <=1.5){
+      assignmentsToday = assignmentsToday + data.Item.Name + ' ' + assignments[i].name + ', '
+    }
+  }
+
+  return assignmentsToday;
+}
+/**
+ * checks today's day (Mon-Sat) and checks to see if there are classes today given today's day
+ * @param {*} classTime: this is a field of a database item (item example: 'software engineering'). This attribute is an object
+ *                      with 2 fields: day and time. 
+ * @param {*} data: the object that is returned from documentClient.get()...
+ * @return: returns a string value containing the name of the class and the time for that class.
+ */
+function getClassesToday(classTime, data){
+  console.log("reading getClassesToday..");
+  let dayOfWeek = "";
+  let classesToday = "";
+  let currentDate = new Date(Date.now()).getUTCDay();
+    switch(currentDate){
+      case 0:
+        dayOfWeek = "sunday";
+        break;
+      case 1: 
+        dayOfWeek = "monday"
+        break;
+      case 2:
+        dayOfWeek = "tuesday"
+        break;
+      case 3:
+        dayOfWeek = "wednesday"
+        break;
+      case 4: 
+        dayOfWeek = "thursday"
+        break;
+      case 5:
+        dayOfWeek = "friday"
+        break;
+      case 6:
+        dayOfWeek = "saturday"
+        break;
+      default:
+        dayOfWeek = "";
+    }
+
+    if (classTime.day.toLowerCase().includes(dayOfWeek)){
+      classesToday = classesToday + data.Item.Name + 'at ' + classTime.time + ', ';
+    }
+
+    return classesToday;
+}
+
 
 //---------------------------------------------------------------------------------------------------------
 
@@ -458,6 +734,9 @@ function computeDifference(date) {
   let currentDate = Date.now();
   date = Date.parse(date);
   let difference = (date - currentDate)/1000/60/60/24;
+  if (Math.abs(difference) > 0 && Math.abs(difference) <= 1.5){
+    difference = Math.abs(difference);
+  }
   console.log(difference);
   return difference;
 }
@@ -732,7 +1011,7 @@ let currentSemesterClasses = [
   'web programming'
 ]
 
-function getAssignmentRemindersToday(callback){
+function getClassDetails(callback){
   let paramList = [
     {
       Key: {
@@ -740,7 +1019,8 @@ function getAssignmentRemindersToday(callback){
       },
       AttributesToGet: [
         'assignments',
-        'Name'
+        'Name',
+        'classTime'
       ],
   
       TableName: 'Courses'
@@ -751,7 +1031,8 @@ function getAssignmentRemindersToday(callback){
       },
       AttributesToGet: [
         'assignments',
-        'Name'
+        'Name',
+        'classTime'
       ],
   
       TableName: 'Courses'
@@ -762,7 +1043,8 @@ function getAssignmentRemindersToday(callback){
       },
       AttributesToGet: [
         'assignments',
-        'Name'
+        'Name',
+        'classTime'
       ],
   
       TableName: 'Courses'
@@ -773,7 +1055,8 @@ function getAssignmentRemindersToday(callback){
       },
       AttributesToGet: [
         'assignments',
-        'Name'
+        'Name',
+        'classTime'
       ],
   
       TableName: 'Courses'
@@ -898,7 +1181,9 @@ exports.handler = skillBuilder
     GetRandomFact,
     FallBackHandler,
     ListofIntentsHandler,
-    UtteranceListHandler
+    UtteranceListHandler,
+    CourseScraperHandler,
+    AllEventsReminderDayHandler
 
   )
   .addErrorHandlers(ErrorHandler)
