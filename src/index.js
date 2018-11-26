@@ -493,6 +493,7 @@ const AllEventsReminderDayHandler = {
     let assignmentsToday = "";
     let classesToday = "";
     let generalRemindersToday = "";
+    let eventsToday = "";
     let response = "";
     let iteration = 0;
     let iteration2 = 0;
@@ -504,8 +505,6 @@ const AllEventsReminderDayHandler = {
   
         let classTime = data.Item.classTime;
         classesToday = classesToday + await getClassesToday(classTime, data);
-
-
 
         iteration = await iterate(iteration);
         
@@ -519,12 +518,6 @@ const AllEventsReminderDayHandler = {
           resolve(todaysList);
         });
       });
-    }).then(function(todaysList){
-      console.log("assignments today are: "+todaysList.assignmentsToday);
-      console.log("classes today are: "+todaysList.classesToday);
-
-      assignmentsToday = "assignments today are: "+ todaysList.assignmentsToday;
-      classesToday = "classes today are: "+ todaysList.classesToday;
     });
 
     let promise2 = new Promise(async function(resolve, reject){
@@ -539,22 +532,69 @@ const AllEventsReminderDayHandler = {
           resolve(generalRemindersToday);
         });
       });
-    }).then(function(resolvedGeneralReminders){
-        console.log("general Reminders Today:"+result);
-        generalRemindersToday = "other reminders today are: " + resolvedGeneralReminders; 
     });
 
-    let promise3 = new Promise(function(resolve, reject){
-      
+    let promise3 = new Promise(async function(resolve, reject){
+      eventsToday = await getEventsToday(FootballGames, eventsToday);
+      resolve(eventsToday);
     });
+
+    await promise.then(function(todaysList){
+      console.log("assignments today are: "+todaysList.assignmentsToday);
+      console.log("classes today are: "+todaysList.classesToday);
+      if(todaysList.assignmentsToday.length == 0){
+        assignmentsToday = "There are no assignments for today.";
+      }
+      else {
+        assignmentsToday = "The assignments today are: "+ todaysList.assignmentsToday;
+      }
+
+      if (todaysList.classesToday.length == 0){
+        classesToday = "There are no classes for today";
+      }
+      else {
+        classesToday = "The classes today are: "+ todaysList.classesToday;
+      }
+    });
+
+    await promise2.then(function(resolvedGeneralReminders){
+      if (generalRemindersToday.length == 0){
+        generalRemindersToday = "There are no general reminders today."
+      }
+      else {
+        generalRemindersToday = "The other reminders today are: " + resolvedGeneralReminders; 
+      }
+     });
+
+     await promise3.then(function(result){
+      if (result.length == 0){
+        eventsToday = "There are no school events going on today. ";
+      } else {
+        eventsToday = "School events today are: " + result;
+      }
+      });
 
     
     return handlerInput.responseBuilder
-          .speak("hello")
-          .reprompt("hello")
+          .speak("Your schedule for today is as follows: " + classesToday + assignmentsToday + eventsToday + generalRemindersToday +
+                  ". Would you like me to repeat your schedule again? just simply say todays schedule.")
+          .reprompt("Your schedule for today is as follows: " + classesToday + assignmentsToday + eventsToday + generalRemindersToday +
+                  ". Would you like me to repeat your schedule again? just simply say todays schedule.")
           .getResponse();
 
   }
+}
+
+
+
+function getEventsToday(FootballGames, eventsToday){
+  for (let i = 0; i < FootballGames.length; i++){
+    let difference = computeDifference(FootballGames[i].time);
+    if (difference > 0 && difference < 1){
+      eventsToday = eventsToday + FootballGames[i].game;
+    }
+  }
+  return eventsToday;
 }
 
 function getGeneralRemindersToday(reminderDetails, data){
@@ -758,7 +798,7 @@ var FootballGames =
 [
   {
     game: "Georgia State University vs Georgia Southern University at October 27th, ",
-    time: "12/24/2018"
+    time: "11/25/2018"
   },
   {
     game: "Georgia State University vs University of Georgia at December 15th,",
