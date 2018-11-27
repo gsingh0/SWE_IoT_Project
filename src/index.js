@@ -4,6 +4,8 @@ const AWS = require('aws-sdk');
 const scraper = require('./courseInfoRetrieve');
 const cron = require("node-cron");
 
+//-----------------------------------------------------------------------------------------------------------
+
 const HelpHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -20,6 +22,8 @@ const HelpHandler = {
   },
 };
 
+//-----------------------------------------------------------------------------------------------------------
+
 const ExitHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -34,6 +38,8 @@ const ExitHandler = {
   },
 };
 
+//-----------------------------------------------------------------------------------------------------------
+
 const ErrorHandler = {
   canHandle() {
     return false;
@@ -47,6 +53,8 @@ const ErrorHandler = {
       .getResponse();
   },
 };
+
+//-----------------------------------------------------------------------------------------------------------
 
 const FallBackHandler = {
   canHandle(handlerInput){
@@ -64,6 +72,8 @@ const FallBackHandler = {
   } 
 }
 
+//-----------------------------------------------------------------------------------------------------------
+
 const SessionEndedRequestHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -76,6 +86,8 @@ const SessionEndedRequestHandler = {
   },
 };
 
+//-----------------------------------------------------------------------------------------------------------
+
 const LaunchRequesHandler = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
@@ -83,11 +95,6 @@ const LaunchRequesHandler = {
   },
   async handle(handlerInput) {
 
-    let assignmentItem = {
-      date: "",
-      name: ""
-    };
-  
     let updatedAssignments = {
       firstClass: [],
       secondClass: [],
@@ -122,6 +129,48 @@ const LaunchRequesHandler = {
         }
         j++;
       });
+    });
+
+    let updatedGeneralReminders = {
+      first: {},
+      second: {},
+      third: {},
+      fourth: {},
+      fifth: {}
+    }
+
+    let k = 0;
+    let promise2 = new Promise(async function(resolve, reject){
+      await getGeneralReminderItems(async function(length, data){
+        let reminderDetails = data.Item.reminderDetails;
+
+        switch(k){
+          case(0):
+            updatedGeneralReminders.first = reminderDetails;
+            updatedGeneralReminders.first = await updateExpiredGeneralReminders(updatedGeneralReminders.first);
+            break;
+          case(1):
+            updatedGeneralReminders.second = reminderDetails;
+            updatedGeneralReminders.second = await updatedGeneralReminders(updatedGeneralReminders.second);
+            break;
+          case(2):
+            updatedGeneralReminders.third = reminderDetails;
+            updatedGeneralReminders.third = await updatedGeneralReminders(updatedGeneralReminders.third);
+            break;
+          case(3):
+            updatedGeneralReminders.fourth = reminderDetails;
+            updatedGeneralReminders.fourth = await updatedGeneralReminders(updatedGeneralReminders.fourth);
+            break;
+          case(4):
+            updatedGeneralReminders.fifth = reminderDetails;
+            updatedGeneralReminders.fifth = await updatedGeneralReminders(updatedGeneralReminders.fifth);
+            resolve(updatedGeneralReminders);
+            break;
+          default:
+            console.log("");
+        }
+      });
+      k++;
     });
     
     await promise.then(function(resolvedUpdatedAssignments){
@@ -169,552 +218,63 @@ const LaunchRequesHandler = {
       }
     });
 
+    await promise2.then(function(resolvedUpdatedGeneralReminders){
+      let paramList = [
+        {
+          Item: {
+            reminderNum: reminderNumList[0],
+            reminderDetails: resolvedUpdatedGeneralReminders.first
+          },
+          TableName: "GeneralReminders"
+        },
+        {
+          Item: {
+            reminderNum: reminderNumList[1],
+            reminderDetails: resolvedUpdatedGeneralReminders.second
+          },
+          TableName: "GeneralReminders"
+        },
+        {
+          Item: {
+            reminderNum: reminderNumList[2],
+            reminderDetails: resolvedUpdatedGeneralReminders.third
+          },
+          TableName: "GeneralReminders"
+        },
+        {
+          Item: {
+            reminderNum: reminderNumList[3],
+            reminderDetails: resolvedUpdatedGeneralReminders.fourth
+          },
+          TableName: "GeneralReminders"
+        },
+        {
+          Item: {
+            reminderNum: reminderNumList[4],
+            reminderDetails: resolvedUpdatedGeneralReminders.fifth
+          },
+          TableName: "GeneralReminders"
+        },
+      ];
+
+      for (let i = 0; i < 4; i++){
+        documentClient.put(paramList[i], function(err){
+          if (err){
+            console.log(err);
+          }
+          else {
+            console.log("general reminders updated");
+          }
+        })
+      }
+    });
+
     return handlerInput.responseBuilder
       .speak(getRandomWelcomeMessage())
       .reprompt(getRandomWelcomeMessage())
       .getResponse();
   },
 };
-
-const GetSchoolEventMonthHandler = {
-  canHandle(handlerInput) {
-    const request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest'
-        && request.intent.name === 'SchoolEventIntentMonth';
-  },
-  handle(handlerInput) {
-    let events = "Here are the list of events coming up this month: ";
-    let eventCounter = 0;
-    for (let i = 0; i < FootballGames.length; i++){
-      let sameMonth = computeMonthDifference(FootballGames[i].time);
-      
-      if (sameMonth){
-        events = events + FootballGames[i].game;
-        eventCounter++;
-      }
-    }
-    
-    events = events + "..say repeat this month to repeat the events for this month";
-    
-    if (eventCounter == 0){
-      return handlerInput.responseBuilder
-        .speak("no events coming up this month")
-        .reprompt("no events coming up this month")
-        .getResponse()
-    }
-    else {
-      return handlerInput.responseBuilder
-        .speak(events)
-        .reprompt("say repeat this month to repeat the events for this month")
-        .getResponse()
-    }
-    
-  },
-};
-
-const GetSchoolEventWeekHandler = {
-  canHandle(handlerInput) {
-    const request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest'
-        && request.intent.name === 'SchoolEventIntentWeek';
-  },
-  handle(handlerInput) {
-    let events = "Here are the list of events coming up this week: ";
-    let eventCounter = 0;
-    for (let i = 0; i < FootballGames.length; i++){
-      let difference = computeDifference(FootballGames[i].time);
-      
-      if (difference <= 7 && difference > 0){
-        events = events + FootballGames[i].game;
-        eventCounter++;
-      }
-    }
-    
-    events = events + "..say repeat this week to repeat the events for this week";
-    
-    if (eventCounter == 0){
-      return handlerInput.responseBuilder
-        .speak("no events coming up this week")
-        .reprompt("no events coming up this week")
-        .getResponse()
-    }
-    else {
-      return handlerInput.responseBuilder
-        .speak(events)
-        .reprompt("say repeat this week to repeat the events for this week")
-        .getResponse()
-    }
-    
-  },
-};
-
-const GetSchoolEventDayHandler = {
-  canHandle(handlerInput) {
-    const request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest'
-        && request.intent.name === 'SchoolEventIntentDay';
-  },
-  handle(handlerInput) {
-    let events = "Here are the list of events coming up today: ";
-    let eventCounter = 0;
-    for (let i = 0; i < FootballGames.length; i++){
-      let difference = computeDifference(FootballGames[i].time);
-      
-      if (difference <= 1 && difference > 0){
-        events = events + FootballGames[i].game;
-        eventCounter++;
-      }
-    }
-    
-    events = events + "...say repeat today to repeat the events for today";
-    
-    if (eventCounter == 0){
-      return handlerInput.responseBuilder
-        .speak("no events coming up today")
-        .reprompt("no events coming up today")
-        .getResponse()
-    }
-    else {
-      return handlerInput.responseBuilder
-        .speak(events)
-        .reprompt("say repeat today to repeat the events for today")
-        .getResponse()
-    }
-    
-  },
-};
-
-const setCurrentSemesterClasses = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest'
-            && request.intent.name === 'setCurrentSemesterClassIntent';
-  },
-  handle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-
-    let newClass = {
-      Name: request.intent.slots.className.value,
-      assignments: [
-        {
-          date: 'none',
-          name: 'none'
-        },
-        {
-          date: 'none',
-          name: 'none'
-        },
-        {
-          date: 'none',
-          name: 'none'
-        }
-      ]
-    }
-
-    setClass(newClass);
-
-    return handlerInput.responseBuilder
-            .speak("your class has been registered into your current semester schedule")
-            .reprompt("your class has been registered into your current semester schedule")
-            .getResponse();
-  }
-}
-
-const removeCurrentSemesterClasses = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'removeCurrentSemesterIntent';
-  },
-  handle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-
-    let Name = request.intent.slots.name.value;
-
-    deleteCurrentSemesterClass(Name);
-
-    return handlerInput.responseBuilder
-            .speak(Name + "has been deleted from your current semester schedule")
-            .reprompt(Name + "has been deleted from your current semester schedule")
-            .getResponse();
-  }
-}
-
-//set assignment reminder
-const setAssignmentReminderHandler = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'SetAssignmentReminderIntent';
-  },
-  async handle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    let realResponse = '';
-    let responseReceived = false;
-    let promise = new Promise(function(resolve, reject){
-      getAssignmentList(request.intent.slots.className.value, function(data) {
-        let response = '';
-        let assignments = data.Item.assignments;
-        let emptySlot = 0;
-        let index;
-        let reminderList = assignments;
-        for(let i = assignments.length-1; i >=0; i--){
-          if (assignments[i].date === 'none' && assignments[i].name === 'none'){
-            emptySlot++;
-            index = i;
-          }
-        }
-  
-        if (emptySlot > 0){ 
-          reminderList[index].name = request.intent.slots.assignment.value;
-          reminderList[index].date = request.intent.slots.date.value;     
-          let event = {
-            Name: request.intent.slots.className.value,
-            assignments: reminderList
-          }
-  
-          setAssignment(event, function(){
-            response = "Your reminder for " + request.intent.slots.assignment.value + " on " + request.intent.slots.date.value + " has been set";
-            responseReceived = true;
-            resolve(response);
-          });
-        }
-        else {
-          response = "The reminders for this class is full. To remove a reminder, please call the remove assignment reminder intent then proceed to" +
-                      "add this reminder";
-          responseReceived = true;
-          resolve(response);
-        }
-  
-      });
-    });
-
-    // let list2 = request.intent.slots.className.value;
-
-    await promise.then(
-      function(result) {
-        realResponse = result;
-        } 
-    )
-
-    if(responseReceived == true){
-      return handlerInput.responseBuilder
-            .speak(realResponse)
-            .reprompt(realResponse)
-            .getResponse();
-    }
-  }
-};
-
-const getAssignmentReminderDayHandler = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'GetAssignmentReminderDayIntent';
-  },
-  async handle(handlerInput){
-    let response = 'You have a ';
-    let failedResponse = response;
-    let iteration = 0;
-    
-    let promise = new Promise(async function(resolve, reject){
-        await getAssignmentRemindersToday(function(length, data){
-        iteration++;
-        let assignments = data.Item.assignments;
-        for (let i = 0; i < assignments.length; i++){
-          let difference = computeDifference(assignments[i].date);
-          if(difference > 0 && difference <=1){
-            console.log("Reading same day...")
-            response = response + data.Item.Name + ' ' + assignments[i].name + ', '
-            console.log(response);
-          }
-        }
-
-        if (iteration == length){
-          console.log("reading i... " + response);
-          resolve(response);
-        }
-      });
-    });
-
-    await promise.then(
-      function(result){
-        if (result === failedResponse){
-          response = 'You have no assignments or exams due today lmao'
-        }
-        else {
-          response = result + ' today';
-        }
-      }
-    )
-  
-    return handlerInput.responseBuilder
-            .speak(response)
-            .reprompt(response)
-            .getResponse();
-  }
-}
-
-const GetRandomFact = {
-  canHandle(handlerInput) {
-      const request = handlerInput.requestEnvelope.request;
-      return request.type === 'IntentRequest'
-      && (request.intent.name === 'GetRandomFact');
-  },
-  handle(handlerInput) {
-      return handlerInput.responseBuilder
-        .speak(getFact())
-        .reprompt(getFact())
-        .getResponse();
-  },
-};
-
-const GetHealthTipHandler = {
-  canHandle(handlerInput) {
-      const request = handlerInput.requestEnvelope.request;
-      return request.type === 'IntentRequest'
-      && (request.intent.name === 'GetHealthTipIntent');
-  },
-  handle(handlerInput) {
-      return handlerInput.responseBuilder
-      .speak(getHealth())
-      .reprompt(getHealth())
-      .getResponse();
-  },
-};
-
-const ListofIntentsHandler = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'ListofIntentsIntent';
-  },
-  handle(handlerInput){
-    let listofintents = "The list of intents for this skill are: ";
-
-    for (let i = 0; i < IntentList.length; i++){
-      listofintents = listofintents + IntentList[i].name + ', ';
-    }
-
-
-    return handlerInput.responseBuilder
-          .speak(listofintents + ". To repeat this list, simply say repeat list of intents.")
-          .reprompt(listofintents + ". To repeat this list, simply say repeat list of intents.")
-          .getResponse();
-  }
-}
-
-const UtteranceListHandler = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'UtteranceListIntent';
-  },
-  handle(handlerInput){
-    let idOfIntent;
-    let utterance = "";
-    let resolutionsPerAuthority = handlerInput.requestEnvelope.request.intent.slots.intentlist.resolutions.resolutionsPerAuthority;
-    if (resolutionsPerAuthority[0].status.code === "ER_SUCCESS_MATCH"){
-      idOfIntent = resolutionsPerAuthority[0].values[0].value.name;
-    }
-    else {
-      idOfIntent = "0";
-    }
-
-    for (let i = 0; i < IntentList.length; i++){
-      if(idOfIntent === IntentList[i].id){
-        utterance = IntentList[i].utterance;
-        break;
-      }
-    }
-
-    if (utterance.length == 0){
-        return handlerInput.responseBuilder
-        .speak("The request for that intent either does not exist or was pronounced incorrectly. Please try again to hear the utterance for an intent.")
-        .reprompt("The request for that intent either does not exist or was pronounced incorrectly. Please try again to hear the utterance for an intent.")
-        .getResponse();
-    }
-    else {
-      return handlerInput.responseBuilder
-        .speak(utterance)
-        .reprompt(utterance)
-        .getResponse();
-    }
-  }
-
-}
-
-const CourseScraperHandler = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'CourseScraperIntent';
-  },
-  handle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    let courseAbbr = request.intent.slots.courseAbbr.value;
-    let term = request.intent.slots.term.value;
-    let sectionID = request.intent.slots.sectionID.value;
-    let courseNumber = request.intent.slots.courseNumber.value;
-
-    let promise = new Promise(function(resolve, reject){
-        if (term === 'course'){
-          term = 'future';
-        }
-
-        resolve(term);
-      }).then(function(newTerm){
-          scraper.courseInfoRetrieve(courseAbbr, courseNumber, sectionID, newTerm).then(function(data){
-            console.log("scraped info: " + data);
-          });
-      });
-
-    return handlerInput.responseBuilder
-            .speak("hello")
-            .reprompt("hello")
-            .getResponse();
-  }
-}
-
-const AllEventsReminderDayHandler = {
-  canHandle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    return request.type === 'IntentRequest' && request.intent.name === 'AllEventsReminderIntent';
-  },
-  async handle(handlerInput){
-    let request = handlerInput.requestEnvelope.request;
-    let assignmentsToday = "";
-    let classesToday = "";
-    let generalRemindersToday = "";
-    let eventsToday = "";
-    let response = "";
-    let iteration = 0;
-    let iteration2 = 0;
-
-    let promise = new Promise(async function(resolve, reject){
-      await getClassDetails(async function(length, data){
-        let assignments = data.Item.assignments;
-        assignmentsToday = assignmentsToday + await getAssignmentsToday(assignments, data);
-  
-        let classTime = data.Item.classTime;
-        classesToday = classesToday + await getClassesToday(classTime, data);
-
-        iteration = await iterate(iteration);
-        
-        await iterateToResolve(iteration, length, function(){
-          
-          let todaysList = {
-            assignmentsToday: assignmentsToday,
-            classesToday: classesToday
-          }
-  
-          resolve(todaysList);
-        });
-      });
-    });
-
-    let promise2 = new Promise(async function(resolve, reject){
-      console.log("gigglybob");
-      await getGeneralReminderItems(async function(length, data){
-        let reminderDetails = data.Item.reminderDetails;
-        generalRemindersToday = generalRemindersToday + await getGeneralRemindersToday(reminderDetails, data);
-
-        iteration2 = await iterate(iteration2);
-
-        await iterateToResolve(iteration2, length, function(){
-          resolve(generalRemindersToday);
-        });
-      });
-    });
-
-    let promise3 = new Promise(async function(resolve, reject){
-      eventsToday = await getEventsToday(FootballGames, eventsToday);
-      resolve(eventsToday);
-    });
-
-    await promise.then(function(todaysList){
-      console.log("assignments today are: "+todaysList.assignmentsToday);
-      console.log("classes today are: "+todaysList.classesToday);
-      if(todaysList.assignmentsToday.length == 0){
-        assignmentsToday = "There are no assignments for today.";
-      }
-      else {
-        assignmentsToday = "The assignments today are: "+ todaysList.assignmentsToday;
-      }
-
-      if (todaysList.classesToday.length == 0){
-        classesToday = "There are no classes for today";
-      }
-      else {
-        classesToday = "The classes today are: "+ todaysList.classesToday;
-      }
-    });
-
-    await promise2.then(function(resolvedGeneralReminders){
-      if (generalRemindersToday.length == 0){
-        generalRemindersToday = "There are no general reminders today."
-      }
-      else {
-        generalRemindersToday = "The other reminders today are: " + resolvedGeneralReminders; 
-      }
-     });
-
-     await promise3.then(function(result){
-      if (result.length == 0){
-        eventsToday = "There are no school events going on today. ";
-      } else {
-        eventsToday = "School events today are: " + result;
-      }
-      });
-
-    
-    return handlerInput.responseBuilder
-          .speak("Your schedule for today is as follows: " + classesToday + assignmentsToday + eventsToday + generalRemindersToday +
-                  ". Would you like me to repeat your schedule again? just simply say todays schedule.")
-          .reprompt("Your schedule for today is as follows: " + classesToday + assignmentsToday + eventsToday + generalRemindersToday +
-                  ". Would you like me to repeat your schedule again? just simply say todays schedule.")
-          .getResponse();
-
-  }
-}
-
-
-async function updateExpiredAssignmentReminders(assignments){
-  let difference;
-  for (let i =0; i < assignments.length; i++){
-    if (assignments[i].date !== "none"){
-      difference = await computeDifference(assignments[i].date);
-    }
-    else {
-      difference = -1;
-    }
-    if (difference < 0){
-      assignments[i].name = "none";
-      assignments[i].date = "none";
-    }
-  }
-
-  return assignments;
-}
-
-
-
-function getEventsToday(FootballGames, eventsToday){
-  for (let i = 0; i < FootballGames.length; i++){
-    let difference = computeDifference(FootballGames[i].time);
-    if (difference > 0 && difference < 1){
-      eventsToday = eventsToday + FootballGames[i].game;
-    }
-  }
-  return eventsToday;
-}
-
-function getGeneralRemindersToday(reminderDetails, data){
-  let generalRemindersToday = "";
-  console.log("date: " + reminderDetails.date);
-  let difference = computeDifference(reminderDetails.date);
-  if (difference > 0 && difference <= 1.5){
-    generalRemindersToday = reminderDetails.reminder + ', ';
-  }
-
-  return generalRemindersToday;
-}
-
-let reminderNumList = [0, 1, 2, 3, 4]
 
 function getGeneralReminderItems(callback){
   let paramList = [
@@ -782,6 +342,577 @@ function getGeneralReminderItems(callback){
   }
 }
 
+async function updateExpiredGeneralReminders(reminderDetails){
+  let difference;
+  if (reminderDetails.date !== 'none'){
+    difference = await computeDifference(reminderDetails.date);
+  }
+  else {
+    difference = -1;
+  }
+
+  if (differece < 0){
+    reminderDetails.date = "none";
+    reminderDetails.reminder = "none";
+  }
+
+  return reminderDetails;
+}
+
+async function updateExpiredAssignmentReminders(assignments){
+  let difference;
+  for (let i =0; i < assignments.length; i++){
+    if (assignments[i].date !== "none"){
+      difference = await computeDifference(assignments[i].date);
+    }
+    else {
+      difference = -1;
+    }
+    if (difference < 0){
+      assignments[i].name = "none";
+      assignments[i].date = "none";
+    }
+  }
+
+  return assignments;
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const GetSchoolEventMonthHandler = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'SchoolEventIntentMonth';
+  },
+  handle(handlerInput) {
+    let events = "Here are the list of events coming up this month: ";
+    let eventCounter = 0;
+    for (let i = 0; i < SchoolEvents.length; i++){
+      let sameMonth = computeMonthDifference(SchoolEvents[i].time);
+      
+      if (sameMonth){
+        events = events + SchoolEvents[i].game;
+        eventCounter++;
+      }
+    }
+    
+    events = events + "..say repeat this month to repeat the events for this month";
+    
+    if (eventCounter == 0){
+      return handlerInput.responseBuilder
+        .speak("no events coming up this month")
+        .reprompt("no events coming up this month")
+        .getResponse()
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(events)
+        .reprompt("say repeat this month to repeat the events for this month")
+        .getResponse()
+    }
+    
+  },
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+const GetSchoolEventWeekHandler = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'SchoolEventIntentWeek';
+  },
+  handle(handlerInput) {
+    let events = "Here are the list of events coming up this week: ";
+    let eventCounter = 0;
+    for (let i = 0; i < SchoolEvents.length; i++){
+      let difference = computeDifference(SchoolEvents[i].time);
+      
+      if (difference <= 7 && difference > 0){
+        events = events + SchoolEvents[i].game;
+        eventCounter++;
+      }
+    }
+    
+    events = events + "..say repeat this week to repeat the events for this week";
+    
+    if (eventCounter == 0){
+      return handlerInput.responseBuilder
+        .speak("no events coming up this week")
+        .reprompt("no events coming up this week")
+        .getResponse()
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(events)
+        .reprompt("say repeat this week to repeat the events for this week")
+        .getResponse()
+    }
+    
+  },
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+const GetSchoolEventDayHandler = {
+  canHandle(handlerInput) {
+    const request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+        && request.intent.name === 'SchoolEventIntentDay';
+  },
+  handle(handlerInput) {
+    let events = "Here are the list of events coming up today: ";
+    let eventCounter = 0;
+    for (let i = 0; i < SchoolEvents.length; i++){
+      let difference = computeDifference(SchoolEvents[i].time);
+      
+      if (difference <= 1 && difference > 0){
+        events = events + SchoolEvents[i].game;
+        eventCounter++;
+      }
+    }
+    
+    events = events + "...say repeat today to repeat the events for today";
+    
+    if (eventCounter == 0){
+      return handlerInput.responseBuilder
+        .speak("no events coming up today")
+        .reprompt("no events coming up today")
+        .getResponse()
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(events)
+        .reprompt("say repeat today to repeat the events for today")
+        .getResponse()
+    }
+    
+  },
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+const setCurrentSemesterClasses = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest'
+            && request.intent.name === 'setCurrentSemesterClassIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+
+    let newClass = {
+      Name: request.intent.slots.className.value,
+      assignments: [
+        {
+          date: 'none',
+          name: 'none'
+        },
+        {
+          date: 'none',
+          name: 'none'
+        },
+        {
+          date: 'none',
+          name: 'none'
+        }
+      ]
+    }
+
+    setClass(newClass);
+
+    return handlerInput.responseBuilder
+            .speak("your class has been registered into your current semester schedule")
+            .reprompt("your class has been registered into your current semester schedule")
+            .getResponse();
+  }
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const removeCurrentSemesterClasses = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'removeCurrentSemesterIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+
+    let Name = request.intent.slots.name.value;
+
+    deleteCurrentSemesterClass(Name);
+
+    return handlerInput.responseBuilder
+            .speak(Name + "has been deleted from your current semester schedule")
+            .reprompt(Name + "has been deleted from your current semester schedule")
+            .getResponse();
+  }
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const setAssignmentReminderHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'SetAssignmentReminderIntent';
+  },
+  async handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let realResponse = '';
+    let responseReceived = false;
+    let promise = new Promise(function(resolve, reject){
+      getAssignmentList(request.intent.slots.className.value, function(data) {
+        let response = '';
+        let assignments = data.Item.assignments;
+        let emptySlot = 0;
+        let index;
+        let reminderList = assignments;
+        for(let i = assignments.length-1; i >=0; i--){
+          if (assignments[i].date === 'none' && assignments[i].name === 'none'){
+            emptySlot++;
+            index = i;
+          }
+        }
+  
+        if (emptySlot > 0){ 
+          reminderList[index].name = request.intent.slots.assignment.value;
+          reminderList[index].date = request.intent.slots.date.value;     
+          let event = {
+            Name: request.intent.slots.className.value,
+            assignments: reminderList
+          }
+  
+          setAssignment(event, function(){
+            response = "Your reminder for " + request.intent.slots.assignment.value + " on " + request.intent.slots.date.value + " has been set";
+            responseReceived = true;
+            resolve(response);
+          });
+        }
+        else {
+          response = "The reminders for this class is full. To remove a reminder, please call the remove assignment reminder intent then proceed to" +
+                      "add this reminder";
+          responseReceived = true;
+          resolve(response);
+        }
+  
+      });
+    });
+
+    // let list2 = request.intent.slots.className.value;
+
+    await promise.then(
+      function(result) {
+        realResponse = result;
+        } 
+    )
+
+    if(responseReceived == true){
+      return handlerInput.responseBuilder
+            .speak(realResponse)
+            .reprompt(realResponse)
+            .getResponse();
+    }
+  }
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+const getAssignmentReminderDayHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'GetAssignmentReminderDayIntent';
+  },
+  async handle(handlerInput){
+    let response = 'You have a ';
+    let failedResponse = response;
+    let iteration = 0;
+    
+    let promise = new Promise(async function(resolve, reject){
+        await getAssignmentRemindersToday(function(length, data){
+        iteration++;
+        let assignments = data.Item.assignments;
+        for (let i = 0; i < assignments.length; i++){
+          let difference = computeDifference(assignments[i].date);
+          if(difference > 0 && difference <=1){
+            console.log("Reading same day...")
+            response = response + data.Item.Name + ' ' + assignments[i].name + ', '
+            console.log(response);
+          }
+        }
+
+        if (iteration == length){
+          console.log("reading i... " + response);
+          resolve(response);
+        }
+      });
+    });
+
+    await promise.then(
+      function(result){
+        if (result === failedResponse){
+          response = 'You have no assignments or exams due today lmao'
+        }
+        else {
+          response = result + ' today';
+        }
+      }
+    )
+  
+    return handlerInput.responseBuilder
+            .speak(response)
+            .reprompt(response)
+            .getResponse();
+  }
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const GetRandomFact = {
+  canHandle(handlerInput) {
+      const request = handlerInput.requestEnvelope.request;
+      return request.type === 'IntentRequest'
+      && (request.intent.name === 'GetRandomFact');
+  },
+  handle(handlerInput) {
+      return handlerInput.responseBuilder
+        .speak(getFact())
+        .reprompt(getFact())
+        .getResponse();
+  },
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+const GetHealthTipHandler = {
+  canHandle(handlerInput) {
+      const request = handlerInput.requestEnvelope.request;
+      return request.type === 'IntentRequest'
+      && (request.intent.name === 'GetHealthTipIntent');
+  },
+  handle(handlerInput) {
+      return handlerInput.responseBuilder
+      .speak(getHealth())
+      .reprompt(getHealth())
+      .getResponse();
+  },
+};
+
+//-----------------------------------------------------------------------------------------------------------
+
+const ListofIntentsHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'ListofIntentsIntent';
+  },
+  handle(handlerInput){
+    let listofintents = "The list of intents for this skill are: ";
+
+    for (let i = 0; i < IntentList.length; i++){
+      listofintents = listofintents + IntentList[i].name + ', ';
+    }
+
+
+    return handlerInput.responseBuilder
+          .speak(listofintents + ". To repeat this list, simply say repeat list of intents.")
+          .reprompt(listofintents + ". To repeat this list, simply say repeat list of intents.")
+          .getResponse();
+  }
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const UtteranceListHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'UtteranceListIntent';
+  },
+  handle(handlerInput){
+    let idOfIntent;
+    let utterance = "";
+    let resolutionsPerAuthority = handlerInput.requestEnvelope.request.intent.slots.intentlist.resolutions.resolutionsPerAuthority;
+    if (resolutionsPerAuthority[0].status.code === "ER_SUCCESS_MATCH"){
+      idOfIntent = resolutionsPerAuthority[0].values[0].value.name;
+    }
+    else {
+      idOfIntent = "0";
+    }
+
+    for (let i = 0; i < IntentList.length; i++){
+      if(idOfIntent === IntentList[i].id){
+        utterance = IntentList[i].utterance;
+        break;
+      }
+    }
+
+    if (utterance.length == 0){
+        return handlerInput.responseBuilder
+        .speak("The request for that intent either does not exist or was pronounced incorrectly. Please try again to hear the utterance for an intent.")
+        .reprompt("The request for that intent either does not exist or was pronounced incorrectly. Please try again to hear the utterance for an intent.")
+        .getResponse();
+    }
+    else {
+      return handlerInput.responseBuilder
+        .speak(utterance)
+        .reprompt(utterance)
+        .getResponse();
+    }
+  }
+
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const CourseScraperHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'CourseScraperIntent';
+  },
+  handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let courseAbbr = request.intent.slots.courseAbbr.value;
+    let term = request.intent.slots.term.value;
+    let sectionID = request.intent.slots.sectionID.value;
+    let courseNumber = request.intent.slots.courseNumber.value;
+
+    let promise = new Promise(function(resolve, reject){
+        if (term === 'course'){
+          term = 'future';
+        }
+
+        resolve(term);
+      }).then(function(newTerm){
+          scraper.courseInfoRetrieve(courseAbbr, courseNumber, sectionID, newTerm).then(function(data){
+            console.log("scraped info: " + data);
+          });
+      });
+
+    return handlerInput.responseBuilder
+            .speak("hello")
+            .reprompt("hello")
+            .getResponse();
+  }
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+const AllEventsReminderDayHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'AllEventsReminderIntent';
+  },
+  async handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    let assignmentsToday = "";
+    let classesToday = "";
+    let generalRemindersToday = "";
+    let eventsToday = "";
+    let response = "";
+    let iteration = 0;
+    let iteration2 = 0;
+
+    let promise = new Promise(async function(resolve, reject){
+      await getClassDetails(async function(length, data){
+        let assignments = data.Item.assignments;
+        assignmentsToday = assignmentsToday + await getAssignmentsToday(assignments, data);
+  
+        let classTime = data.Item.classTime;
+        classesToday = classesToday + await getClassesToday(classTime, data);
+
+        iteration = await iterate(iteration);
+        
+        await iterateToResolve(iteration, length, function(){
+          
+          let todaysList = {
+            assignmentsToday: assignmentsToday,
+            classesToday: classesToday
+          }
+  
+          resolve(todaysList);
+        });
+      });
+    });
+
+    let promise2 = new Promise(async function(resolve, reject){
+      console.log("gigglybob");
+      await getGeneralReminderItems(async function(length, data){
+        let reminderDetails = data.Item.reminderDetails;
+        generalRemindersToday = generalRemindersToday + await getGeneralRemindersToday(reminderDetails, data);
+
+        iteration2 = await iterate(iteration2);
+
+        await iterateToResolve(iteration2, length, function(){
+          resolve(generalRemindersToday);
+        });
+      });
+    });
+
+    let promise3 = new Promise(async function(resolve, reject){
+      eventsToday = await getEventsToday(SchoolEvents, eventsToday);
+      resolve(eventsToday);
+    });
+
+    await promise.then(function(todaysList){
+      console.log("assignments today are: "+todaysList.assignmentsToday);
+      console.log("classes today are: "+todaysList.classesToday);
+      if(todaysList.assignmentsToday.length == 0){
+        assignmentsToday = "There are no assignments for today.";
+      }
+      else {
+        assignmentsToday = "The assignments today are: "+ todaysList.assignmentsToday;
+      }
+
+      if (todaysList.classesToday.length == 0){
+        classesToday = "There are no classes for today";
+      }
+      else {
+        classesToday = "The classes today are: "+ todaysList.classesToday;
+      }
+    });
+
+    await promise2.then(function(resolvedGeneralReminders){
+      if (generalRemindersToday.length == 0){
+        generalRemindersToday = "There are no general reminders today."
+      }
+      else {
+        generalRemindersToday = "The other reminders today are: " + resolvedGeneralReminders; 
+      }
+     });
+
+     await promise3.then(function(result){
+      if (result.length == 0){
+        eventsToday = "There are no school events going on today. ";
+      } else {
+        eventsToday = "School events today are: " + result;
+      }
+      });
+
+    
+    return handlerInput.responseBuilder
+          .speak("Your schedule for today is as follows: " + classesToday + assignmentsToday + eventsToday + generalRemindersToday +
+                  ". Would you like me to repeat your schedule again? just simply say todays schedule.")
+          .reprompt("Your schedule for today is as follows: " + classesToday + assignmentsToday + eventsToday + generalRemindersToday +
+                  ". Would you like me to repeat your schedule again? just simply say todays schedule.")
+          .getResponse();
+
+  }
+}
+
+/**
+ * gets all the school events that are today and returns a string value of those events
+ * @param {*} SchoolEvents: list of school events (and array that has hard-coded list of events).
+ * @param {*} eventsToday: string value that concats all the school events that are today. 
+ */
+function getEventsToday(SchoolEvents, eventsToday){
+  for (let i = 0; i < SchoolEvents.length; i++){
+    let difference = computeDifference(SchoolEvents[i].time);
+    if (difference > 0 && difference < 1){
+      eventsToday = eventsToday + SchoolEvents[i].game + ',';
+    }
+  }
+  return eventsToday;
+}
+
 /** 
  * checks to see if the last item in the database has been read (which is when iteration = 4). 
  * Once its read, it calls callback function that resolves the result.
@@ -796,6 +927,22 @@ function iterateToResolve(iteration, length, callback){
   if (iteration == length){
     callback();
   }
+}
+
+/**
+ * gets all the general reminders for today and returns a string value of those values
+ * @param {*} reminderDetails: database field that is of type object with two fields: reminder and date. 
+ * @param {*} data: no idea why this is here, ignore for now
+ */
+function getGeneralRemindersToday(reminderDetails, data){
+  let generalRemindersToday = "";
+  console.log("date: " + reminderDetails.date);
+  let difference = computeDifference(reminderDetails.date);
+  if (difference > 0 && difference <= 1.5){
+    generalRemindersToday = reminderDetails.reminder + ', ';
+  }
+
+  return generalRemindersToday;
 }
 
 /**
@@ -828,6 +975,7 @@ function getAssignmentsToday(assignments, data){
 
   return assignmentsToday;
 }
+
 /**
  * checks today's day (Mon-Sat) and checks to see if there are classes today given today's day
  * @param {*} classTime: this is a field of a database item (item example: 'software engineering'). This attribute is an object
@@ -873,9 +1021,31 @@ function getClassesToday(classTime, data){
     return classesToday;
 }
 
+//-----------------------------------------------------------------------------------------------------------
 
-//---------------------------------------------------------------------------------------------------------
+const setGeneralReminderHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'setGeneralReminder';
+  },
+  async handle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
 
+    return handlerInput.responseBuilder
+          .speak()
+          .reprompt()
+          .getResponse();
+
+  }
+}
+
+
+//-----------------------------------------------------------------------------------------------------------
+
+/**
+ * Calculates the difference in days between today and the date that is passed in the parameter. Returns the difference
+ * @param {*} date: date of some day  
+ */
 function computeDifference(date) {
   let currentDate = Date.now();
   date = Date.parse(date);
@@ -887,6 +1057,10 @@ function computeDifference(date) {
   return difference;
 }
 
+/**
+ * Checks to see if the current date's month is the same as the month of the date that is passed as the parameter
+ * @param {*} date: date of some day
+ */
 function computeMonthDifference(date){
   let currentDateMonth = new Date(Date.now()).getMonth();
   let dateMonth = new Date(date).getMonth();
@@ -900,7 +1074,9 @@ function computeMonthDifference(date){
   
 }
 
-var FootballGames = 
+//-----------------------------------------------------------------------------------------------------------
+
+var SchoolEvents = 
 [
   {
     game: "Georgia State University vs Georgia Southern University at October 27th, ",
@@ -911,7 +1087,6 @@ var FootballGames =
     time: "12/21/2018"
   }
 ]
-//-----------------------------------------------------------------------------------------------------------
 
 //This is a intent to see which professor teaches a class.
 const GetClassProfessor = {
@@ -1049,7 +1224,6 @@ var JohnsonReview =
   review: "Give everyone an A!"
 }
 ]
-//-----------------------------------------------------------------------------------------------------------
 
 // Random Fact Array
 var randomFactArr = [
@@ -1069,9 +1243,6 @@ function getFact () {
   return randomFactArr[Math.floor(Math.random() * randomFactArr.length)];
 }
 
-
-
-//-----------------------------------------------------------------------------------------------------------
 
 // Random Health Note Array
 var randomHealthArr = [
@@ -1094,8 +1265,6 @@ function getHealth () {
 
 // An intent to request a random health note for a GSU student.
 
-
-//-----------------------------------------------------------------------------------------------------------
 
 var welcomeMessageArray = [
   "Welcome Panther! What can I help you with?",
@@ -1146,17 +1315,26 @@ var IntentList = [
     id: '7'
   }
 
-]
-
-var documentClient = new AWS.DynamoDB.DocumentClient();
+];
 
 let currentSemesterClasses = [
   'software engineering',
   'system level programming',
   'databases',
   'web programming'
-]
+];
 
+var reminderNumList = [0, 1, 2, 3, 4];
+
+//-----------------------------------------------------------------------------------------------------------
+
+var documentClient = new AWS.DynamoDB.DocumentClient();
+
+/**
+ * Gets all the items in the Courses table (Name, assignments, and classTime). Callback function handles the returned data and is
+ * within a for loop which means the documentClient.get() method is run multiple times.
+ * @param {*} callback: a function that handles the returned data
+ */
 function getClassDetails(callback){
   let paramList = [
     {
@@ -1221,6 +1399,11 @@ function getClassDetails(callback){
   }
 }
 
+/**
+ * Gets the list of assignments from the Courses table in the database.
+ * @param {*} className: Name of the class (needed to search for the correct assignments)
+ * @param {*} callback: a function that handles the returned data
+ */
 function getAssignmentList(className, callback){
   let params  = {
     Key: {
@@ -1246,6 +1429,11 @@ function getAssignmentList(className, callback){
 
 }
 
+/**
+ * 
+ * @param {*} event 
+ * @param {*} callback 
+ */
 function setAssignment(event, callback){ 
   var params = {
     Item: {
@@ -1307,7 +1495,6 @@ function setClass(newClass, context, callback){
 //-----------------------------------------------------------------------------------------------------------
 
 const skillBuilder = Alexa.SkillBuilders.standard();
-
 
 exports.handler = skillBuilder
   .addRequestHandlers(
