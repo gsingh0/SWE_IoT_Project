@@ -2,6 +2,7 @@
 const Alexa = require('ask-sdk');
 const AWS = require('aws-sdk');
 const scraper = require('./courseInfoRetrieve');
+const cron = require("node-cron");
 
 const HelpHandler = {
   canHandle(handlerInput) {
@@ -80,7 +81,93 @@ const LaunchRequesHandler = {
     const request = handlerInput.requestEnvelope.request;
     return request.type === 'LaunchRequest'
   },
-  handle(handlerInput) {
+  async handle(handlerInput) {
+
+    let assignmentItem = {
+      date: "",
+      name: ""
+    };
+  
+    let updatedAssignments = {
+      firstClass: [],
+      secondClass: [],
+      thirdClass: [],
+      fourthClass: []
+    };
+  
+    let j = 0;
+    let promise = new Promise(async function(resolve, reject){
+      await getClassDetails(async function(length, data){
+        
+        switch(j){
+          case(0):
+            updatedAssignments.firstClass = data.Item.assignments;
+            updatedAssignments.firstClass = await updateExpiredAssignmentReminders(updatedAssignments.firstClass);
+            break;
+          case(1):
+            updatedAssignments.secondClass = data.Item.assignments;
+            updatedAssignments.secondClass = await updateExpiredAssignmentReminders(updatedAssignments.secondClass);
+            break;
+          case(2):
+            updatedAssignments.thirdClass = data.Item.assignments;
+            updatedAssignments.thirdClass = await updateExpiredAssignmentReminders(updatedAssignments.thirdClass);
+            break;
+          case(3):
+            updatedAssignments.fourthClass = data.Item.assignments;
+            updatedAssignments.fourthClass = await updateExpiredAssignmentReminders(updatedAssignments.fourthClass);
+            resolve(updatedAssignments);
+            break;
+          default:
+            console.log("");
+        }
+        j++;
+      });
+    });
+    
+    await promise.then(function(resolvedUpdatedAssignments){
+      var paramList =[ 
+      {
+        Item: {
+          Name: currentSemesterClasses[0],
+          assignments: resolvedUpdatedAssignments.firstClass
+        },
+        TableName: "Courses"
+      },
+      {
+        Item: {
+          Name: currentSemesterClasses[1],
+          assignments: resolvedUpdatedAssignments.secondClass
+        },
+        TableName: "Courses"
+      },
+      {
+        Item: {
+          Name: currentSemesterClasses[2],
+          assignments: resolvedUpdatedAssignments.thirdClass
+        },
+        TableName: "Courses"
+      },
+      {
+        Item: {
+          Name: currentSemesterClasses[3],
+          assignments: resolvedUpdatedAssignments.fourthClass
+        },
+        TableName: "Courses"
+      },
+  
+    ];
+      
+      for (let i = 0; i < 4; i++){
+        documentClient.put(paramList[i], function(err){
+          if (err){
+            console.log(err);
+          }
+          else {
+            console.log("success");
+          }
+        });
+      }
+    });
 
     return handlerInput.responseBuilder
       .speak(getRandomWelcomeMessage())
@@ -583,6 +670,25 @@ const AllEventsReminderDayHandler = {
           .getResponse();
 
   }
+}
+
+
+async function updateExpiredAssignmentReminders(assignments){
+  let difference;
+  for (let i =0; i < assignments.length; i++){
+    if (assignments[i].date !== "none"){
+      difference = await computeDifference(assignments[i].date);
+    }
+    else {
+      difference = -1;
+    }
+    if (difference < 0){
+      assignments[i].name = "none";
+      assignments[i].date = "none";
+    }
+  }
+
+  return assignments;
 }
 
 
