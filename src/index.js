@@ -1093,7 +1093,7 @@ const GetClassProfessor = {
   canHandle(handlerInput) {
     const request = handlerInput.requestEnvelope.request;
     return request.type === 'IntentRequest'
-        && request.intent.name === 'ClassProfessor';
+        && request.intent.name === 'GetClassProfessor';
   },
   handle(handlerInput) {
     let events = "Here are the list of Professors for this class: ";
@@ -1233,7 +1233,7 @@ var randomFactArr = [
   'You can reserve a group study room by going to the GSU library website under the Service and Support Tab.',
   'Parking decks on campus that are available to students all day are the decks K, N, and the top of S deck.',
   'If you plan to park on campus, might I suggest obtaining a budget parking card from Parking and Transporation services on the second floor of Student Center West',
-  'Interested in watching Georgia Sate Athletic Events? Visit GSUStudentTickets.com for your free student ticket.',
+  'Interested in watching Georgia State Athletic Events? Visit GSUStudentTickets.com for your free student ticket.',
   'If you lose your Panther Card, you can renew one for a fee of $5. Just visit Campus Services on the second floor of Student Center West',
   'Want to get Academic Advisement at the GSU Atlanta Campus? Visit the University Advisement Center at 25 Park Place building. Freshmen, sophomores, and juniors can visit the fourth and fifth floor for advisement.',
   'Still don\'t know what to major in? take a major recommendation quiz at gsu.mymajors.com/quiz/'
@@ -1263,8 +1263,6 @@ function getHealth () {
   return randomHealthArr[Math.floor(Math.random() * randomHealthArr.length)];
 }
 
-// An intent to request a random health note for a GSU student.
-
 
 var welcomeMessageArray = [
   "Welcome Panther! What can I help you with?",
@@ -1291,7 +1289,7 @@ var IntentList = [
   },
   {
     name: "School Events for this month",
-    utterance: "the utterance is: shool events for this month",
+    utterance: "the utterance is: school events for this month",
     id: '3'
   },
   {
