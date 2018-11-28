@@ -1174,52 +1174,6 @@ const setGeneralReminderHandler = {
 
 //-----------------------------------------------------------------------------------------------------------
 
-/**
- * Calculates the difference in days between today and the date that is passed in the parameter. Returns the difference
- * @param {*} date: date of some day  
- */
-function computeDifference(date) {
-  let currentDate = Date.now();
-  date = Date.parse(date);
-  let difference = (date - currentDate)/1000/60/60/24;
-  if (Math.abs(difference) > 0 && Math.abs(difference) <= 1.5){
-    difference = Math.abs(difference);
-  }
-  console.log(difference);
-  return difference;
-}
-
-/**
- * Checks to see if the current date's month is the same as the month of the date that is passed as the parameter
- * @param {*} date: date of some day
- */
-function computeMonthDifference(date){
-  let currentDateMonth = new Date(Date.now()).getMonth();
-  let dateMonth = new Date(date).getMonth();
-  let sameMonth = false;
-  
-  if (dateMonth == currentDateMonth){
-    sameMonth = true;
-  }
-  
-  return sameMonth;
-  
-}
-
-//-----------------------------------------------------------------------------------------------------------
-
-var SchoolEvents = 
-[
-  {
-    game: "Georgia State University vs Georgia Southern University at October 27th, ",
-    time: "11/25/2018"
-  },
-  {
-    game: "Georgia State University vs University of Georgia at December 15th,",
-    time: "12/21/2018"
-  }
-]
-
 //This is a intent to see which professor teaches a class.
 const GetClassProfessor = {
   canHandle(handlerInput) {
@@ -1356,6 +1310,55 @@ var JohnsonReview =
   review: "Give everyone an A!"
 }
 ]
+
+
+/**
+ * Calculates the difference in days between today and the date that is passed in the parameter. Returns the difference
+ * @param {*} date: date of some day  
+ */
+function computeDifference(date) {
+  let currentDate = Date.now();
+  date = Date.parse(date);
+  let difference = (date - currentDate)/1000/60/60/24;
+  if (Math.abs(difference) > 0 && Math.abs(difference) <= 1.5){
+    difference = Math.abs(difference);
+  }
+  console.log(difference);
+  return difference;
+}
+
+/**
+ * Checks to see if the current date's month is the same as the month of the date that is passed as the parameter
+ * @param {*} date: date of some day
+ */
+function computeMonthDifference(date){
+  let currentDateMonth = new Date(Date.now()).getMonth();
+  let dateMonth = new Date(date).getMonth();
+  let sameMonth = false;
+  
+  if (dateMonth == currentDateMonth){
+    sameMonth = true;
+  }
+  
+  return sameMonth;
+  
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+var SchoolEvents = 
+[
+  {
+    game: "Georgia State University vs Georgia Southern University at October 27th, ",
+    time: "11/25/2018"
+  },
+  {
+    game: "Georgia State University vs University of Georgia at December 15th,",
+    time: "12/21/2018"
+  }
+]
+
+
 
 // Random Fact Array
 var randomFactArr = [
