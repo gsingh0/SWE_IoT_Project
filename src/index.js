@@ -2,7 +2,6 @@
 const Alexa = require('ask-sdk');
 const AWS = require('aws-sdk');
 const scraper = require('./courseInfoRetrieve');
-const cron = require("node-cron");
 
 //-----------------------------------------------------------------------------------------------------------
 
@@ -99,35 +98,18 @@ const LaunchRequesHandler = {
       firstClass: [],
       secondClass: [],
       thirdClass: [],
-      fourthClass: []
+      fourthClass: [],
+      firstClassTime: {},
+      secondClassTime: {},
+      thirdClassTime: {},
+      fourthClassTime: {}
     };
   
     let j = 0;
     let promise = new Promise(async function(resolve, reject){
       await getClassDetails(async function(length, data){
-        
-        switch(j){
-          case(0):
-            updatedAssignments.firstClass = data.Item.assignments;
-            updatedAssignments.firstClass = await updateExpiredAssignmentReminders(updatedAssignments.firstClass);
-            break;
-          case(1):
-            updatedAssignments.secondClass = data.Item.assignments;
-            updatedAssignments.secondClass = await updateExpiredAssignmentReminders(updatedAssignments.secondClass);
-            break;
-          case(2):
-            updatedAssignments.thirdClass = data.Item.assignments;
-            updatedAssignments.thirdClass = await updateExpiredAssignmentReminders(updatedAssignments.thirdClass);
-            break;
-          case(3):
-            updatedAssignments.fourthClass = data.Item.assignments;
-            updatedAssignments.fourthClass = await updateExpiredAssignmentReminders(updatedAssignments.fourthClass);
-            resolve(updatedAssignments);
-            break;
-          default:
-            console.log("");
-        }
-        j++;
+        await iterateThroughAssignments(j, updatedAssignments, data, resolve);
+        j = await iterate(j);
       });
     });
 
@@ -142,35 +124,9 @@ const LaunchRequesHandler = {
     let k = 0;
     let promise2 = new Promise(async function(resolve, reject){
       await getGeneralReminderItems(async function(length, data){
-        let reminderDetails = data.Item.reminderDetails;
-
-        switch(k){
-          case(0):
-            updatedGeneralReminders.first = reminderDetails;
-            updatedGeneralReminders.first = await updateExpiredGeneralReminders(updatedGeneralReminders.first);
-            break;
-          case(1):
-            updatedGeneralReminders.second = reminderDetails;
-            updatedGeneralReminders.second = await updatedGeneralReminders(updatedGeneralReminders.second);
-            break;
-          case(2):
-            updatedGeneralReminders.third = reminderDetails;
-            updatedGeneralReminders.third = await updatedGeneralReminders(updatedGeneralReminders.third);
-            break;
-          case(3):
-            updatedGeneralReminders.fourth = reminderDetails;
-            updatedGeneralReminders.fourth = await updatedGeneralReminders(updatedGeneralReminders.fourth);
-            break;
-          case(4):
-            updatedGeneralReminders.fifth = reminderDetails;
-            updatedGeneralReminders.fifth = await updatedGeneralReminders(updatedGeneralReminders.fifth);
-            resolve(updatedGeneralReminders);
-            break;
-          default:
-            console.log("");
-        }
+        await iterateThroughGeneralReminder(k, updatedGeneralReminders, data, resolve);
+        k = await iterate(k);
       });
-      k++;
     });
     
     await promise.then(function(resolvedUpdatedAssignments){
@@ -178,28 +134,32 @@ const LaunchRequesHandler = {
       {
         Item: {
           Name: currentSemesterClasses[0],
-          assignments: resolvedUpdatedAssignments.firstClass
+          assignments: resolvedUpdatedAssignments.firstClass,
+          classTime: resolvedUpdatedAssignments.firstClassTime
         },
         TableName: "Courses"
       },
       {
         Item: {
           Name: currentSemesterClasses[1],
-          assignments: resolvedUpdatedAssignments.secondClass
+          assignments: resolvedUpdatedAssignments.secondClass,
+          classTime: resolvedUpdatedAssignments.secondClassTime
         },
         TableName: "Courses"
       },
       {
         Item: {
           Name: currentSemesterClasses[2],
-          assignments: resolvedUpdatedAssignments.thirdClass
+          assignments: resolvedUpdatedAssignments.thirdClass,
+          classTime: resolvedUpdatedAssignments.thirdClassTime
         },
         TableName: "Courses"
       },
       {
         Item: {
           Name: currentSemesterClasses[3],
-          assignments: resolvedUpdatedAssignments.fourthClass
+          assignments: resolvedUpdatedAssignments.fourthClass,
+          classTime: resolvedUpdatedAssignments.fourthClassTime
         },
         TableName: "Courses"
       },
@@ -219,6 +179,7 @@ const LaunchRequesHandler = {
     });
 
     await promise2.then(function(resolvedUpdatedGeneralReminders){
+      
       let paramList = [
         {
           Item: {
@@ -257,7 +218,8 @@ const LaunchRequesHandler = {
         },
       ];
 
-      for (let i = 0; i < 4; i++){
+      for(let i = 0; i < 5; i++){
+        console.log("readings for " + paramList[i].Item.reminderNum + " " + paramList[i].Item.reminderDetails);
         documentClient.put(paramList[i], function(err){
           if (err){
             console.log(err);
@@ -265,7 +227,7 @@ const LaunchRequesHandler = {
           else {
             console.log("general reminders updated");
           }
-        })
+        });
       }
     });
 
@@ -273,8 +235,69 @@ const LaunchRequesHandler = {
       .speak(getRandomWelcomeMessage())
       .reprompt(getRandomWelcomeMessage())
       .getResponse();
-  },
+  }
 };
+
+async function iterateThroughAssignments(j, updatedAssignments, data, resolve){
+  switch(j){
+    case(0):
+      updatedAssignments.firstClass = data.Item.assignments;
+      updatedAssignments.firstClassTime = data.Item.classTime;
+      updatedAssignments.firstClass = await updateExpiredAssignmentReminders(updatedAssignments.firstClass);
+      console.log(j+ " firstClass " + updatedAssignments.firstClass + "firstClassTime " + updatedAssignments.firstClassTime);
+      break;
+    case(1):
+      updatedAssignments.secondClass = data.Item.assignments;
+      updatedAssignments.secondClassTime = data.Item.classTime;
+      updatedAssignments.secondClass = await updateExpiredAssignmentReminders(updatedAssignments.secondClass);
+      console.log(j+ " firstClass " + updatedAssignments.firstClass + "firstClassTime " + updatedAssignments.firstClassTime);
+      break;
+    case(2):
+      updatedAssignments.thirdClass = data.Item.assignments;
+      updatedAssignments.thirdClassTime = data.Item.classTime;
+      updatedAssignments.thirdClass = await updateExpiredAssignmentReminders(updatedAssignments.thirdClass);
+      console.log(j+ " firstClass " + updatedAssignments.firstClass + "firstClassTime " + updatedAssignments.firstClassTime);
+      break;
+    case(3):
+      updatedAssignments.fourthClass = data.Item.assignments;
+      updatedAssignments.fourthClassTime = data.Item.classTime;
+      updatedAssignments.fourthClass = await updateExpiredAssignmentReminders(updatedAssignments.fourthClass);
+      console.log(j+ " firstClass " + updatedAssignments.firstClass + "firstClassTime " + updatedAssignments.firstClassTime);
+      resolve(updatedAssignments);
+      break;
+    default:
+      console.log("");
+  }
+}
+
+async function iterateThroughGeneralReminder(k, updatedGeneralReminders, data, resolve){
+  let reminderDetails = data.Item.reminderDetails;
+  switch(k){
+    case(0):
+      updatedGeneralReminders.first = reminderDetails;
+      updatedGeneralReminders.first = await updateExpiredGeneralReminders(updatedGeneralReminders.first);
+      break;
+    case(1):
+      updatedGeneralReminders.second = reminderDetails;
+      updatedGeneralReminders.second = await updateExpiredGeneralReminders(updatedGeneralReminders.second);
+      break;
+    case(2):
+      updatedGeneralReminders.third = reminderDetails;
+      updatedGeneralReminders.third = await updateExpiredGeneralReminders(updatedGeneralReminders.third);
+      break;
+    case(3):
+      updatedGeneralReminders.fourth = reminderDetails;
+      updatedGeneralReminders.fourth = await updateExpiredGeneralReminders(updatedGeneralReminders.fourth);
+      break;
+    case(4):
+      updatedGeneralReminders.fifth = reminderDetails;
+      updatedGeneralReminders.fifth = await updateExpiredGeneralReminders(updatedGeneralReminders.fifth);
+      resolve(updatedGeneralReminders);
+      break;
+    default:
+      console.log("");
+  }
+}
 
 function getGeneralReminderItems(callback){
   let paramList = [
@@ -344,6 +367,7 @@ function getGeneralReminderItems(callback){
 
 async function updateExpiredGeneralReminders(reminderDetails){
   let difference;
+  console.log("reading updateExpiredGeneralReminders");
   if (reminderDetails.date !== 'none'){
     difference = await computeDifference(reminderDetails.date);
   }
@@ -351,7 +375,7 @@ async function updateExpiredGeneralReminders(reminderDetails){
     difference = -1;
   }
 
-  if (differece < 0){
+  if (difference < 0){
     reminderDetails.date = "none";
     reminderDetails.reminder = "none";
   }
@@ -762,40 +786,148 @@ const UtteranceListHandler = {
 }
 
 //-----------------------------------------------------------------------------------------------------------
+var futureCourseList = {
+  course: []
+};
 
 const CourseScraperHandler = {
   canHandle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
     return request.type === 'IntentRequest' && request.intent.name === 'CourseScraperIntent';
   },
-  handle(handlerInput){
+  async handle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
+    var response = "I did not find your course. Either you said it incorrectly or the course information is incorrect. Try scraping again.";
     let courseAbbr = request.intent.slots.courseAbbr.value;
     let term = request.intent.slots.term.value;
     let sectionID = request.intent.slots.sectionID.value;
     let courseNumber = request.intent.slots.courseNumber.value;
 
     let promise = new Promise(function(resolve, reject){
-        if (term === 'course'){
-          term = 'future';
+        if (courseAbbr == null || term == null || sectionID == null || courseNumber == null){
+          reject();
         }
-
-        resolve(term);
-      }).then(function(newTerm){
-          scraper.courseInfoRetrieve(courseAbbr, courseNumber, sectionID, newTerm).then(function(data){
-            console.log("scraped info: " + data);
+        else if (term === "course" && courseNumber > -1){
+          courseAbbr = courseAbbr.toUpperCase();
+          term = "future";
+          resolve();
+        }
+        else if(term === "semester" && courseNumber > -1){
+          courseAbbr = courseAbbr.toUpperCase();
+          term = "current";
+          resolve();
+        }
+        else {
+          reject();
+        }
+      });
+      
+      await promise.then(async function(){
+          await scraper.courseInfoRetrieve(courseAbbr, courseNumber, sectionID, term).then(function(data){
+            if(data[6] === "MW"){
+              data[6] = "Monday and Wednesday";
+            }
+            else if(data[6] === "TR"){
+              data[6] = "Tuesday and Thursday";
+            }
+            if (term === "current"){
+              console.log("reading current");
+              response = "The course for this class is " + data[5] + " which is on " + data[6] + " at " + data[7] + " to " + data[8] + " located in " + data[11];  
+            }
+            else {
+              if (data[9] > 0){
+                response = "There are " + data[9] + " seats left for " + data[5] + " on " + data[6] + " at " + data[7]+ " to " + data[8] + ". Say register scraped courses " +
+                            " to register them in your next semester schedule."
+                if (futureCourseList.course.length == 1){
+                  futureCourseList.course.pop();
+                  futureCourseList.course = data;
+                }
+                else {
+                  futureCourseList.course = data;
+                }
+              }
+            }
           });
+      })
+      
+      await promise.catch(function(){
+        response = "I did not find your course. Either you said it incorrectly or the course information is incorrect. Try scraping again.";
       });
 
     return handlerInput.responseBuilder
-            .speak("hello")
-            .reprompt("hello")
+            .speak(response)
+            .reprompt(response)
             .getResponse();
   }
 }
 
 //-----------------------------------------------------------------------------------------------------------
 
+const setFutureSemesterCoursesHandler = {
+  canHandle(handlerInput){
+    let request = handlerInput.requestEnvelope.request;
+    return request.type === 'IntentRequest' && request.intent.name === 'setFutureSemesterCoursesIntent';
+  },
+  async handle(handlerInput){
+      let response = "There was an error adding your course, please use the course scraper intent before setting your course for next semester.";
+    
+      await registerFutureCourse(futureCourseList, function(){
+        response = "Your course for " + futureCourseList.course[5] + " has been added to your next semester schedule";
+      });
+      
+    return handlerInput.responseBuilder
+          .speak(response)
+          .reprompt(response)
+          .getResponse();
+
+  }
+}
+
+async function registerFutureCourse(futureCourseList, callback){
+  let params = {
+    TableName: 'FutureCourses',
+    Item: {
+      Name: futureCourseList.course[5],
+      assignments: [
+        {
+          date: "none",
+          name: "none"
+        },
+        {
+          date: "none",
+          name: "none"
+        },
+        {
+          date: "none",
+          name: "none"
+        }
+      ],
+      classTime: {
+        day: futureCourseList.course[6],
+        time: futureCourseList.course[7] + " to " + futureCourseList.course[8]
+      }
+    }
+  };
+
+  if (futureCourseList.course.length > 0){
+    await documentClient.put(params, async function(err){
+      if (err){
+        console.log(err)
+      }
+      else {
+        console.log("new item added");
+        await callback();
+      }
+    });
+  }
+  
+}
+
+//-----------------------------------------------------------------------------------------------------------
+
+
+
+//-----------------------------------------------------------------------------------------------------------
 const AllEventsReminderDayHandler = {
   canHandle(handlerInput){
     let request = handlerInput.requestEnvelope.request;
@@ -1514,7 +1646,8 @@ exports.handler = skillBuilder
     ListofIntentsHandler,
     UtteranceListHandler,
     CourseScraperHandler,
-    AllEventsReminderDayHandler
+    AllEventsReminderDayHandler,
+    setFutureSemesterCoursesHandler
 
   )
   .addErrorHandlers(ErrorHandler)

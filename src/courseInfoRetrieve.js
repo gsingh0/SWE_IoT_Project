@@ -16,20 +16,28 @@ module.exports = {
     courseInfoRetrieve: async function(cAbbr,cNum,cID,cTerm){
         const puppeteer = require('puppeteer-core');
         const {TimeoutError} = require('puppeteer-core/Errors');
-        const chromium = require('chrome-aws-lambda');
+        // const chromium = require('chrome-aws-lambda');
+        const { extract, cleanup } = require('aws-puppeteer-lambda');
+    
         // const launchChrome = require('@serverless-chrome/lambda');
         var rowSID = -1, courseExists;
+        const executablePath = await extract();
 
         async function run(n) {
             const browser = await puppeteer.launch({
-                args: chromium.args,
-                executablePath: await chromium.executablePath,
-                headless: chromium.headless,
-                puppeteer: chromium.puppeteer
-            });
+                ignoreHTTPSErrors: true,
+                args: [
+                  '--disable-dev-shm-usage',
+                  '--disable-gpu',
+                  '--single-process',
+                  '--no-zygote',
+                  '--no-sandbox'
+                ],
+                executablePath
+              });
 
             const page = await browser.newPage();
-
+            console.log(cAbbr + "   " + cNum + "    " + cID + "     " + cTerm);
             //var dateComp = await getCurrentDate();
             var term = await getTerm();
             // Wait for search results page to load
@@ -69,6 +77,7 @@ module.exports = {
                 });
 
                 await browser.close();
+                await cleanup();
                 return data;
             } catch (e) {
                 if (e instanceof TimeoutError) {
@@ -76,9 +85,11 @@ module.exports = {
                     if((courseExists != null) && (courseExists[courseExists.length-1] === "No classes"))
                     {
                         await browser.close();
+                        await cleanup();
                         return "invalid";
                     }
-                    await browser.close();                  
+                    await browser.close();  
+                    await cleanup();                
                     if(n === 0) 
                         return "timeout";
                     else
@@ -87,6 +98,7 @@ module.exports = {
                     //return "timeout";
                 }else{                
                     await browser.close(); 
+                    await cleanup();
                     if(n === 0) 
                         return "timeout";
                     else
