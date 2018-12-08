@@ -993,7 +993,7 @@ const getCurrentSemesterCoursesHandler = {
 
 function iterateThroughCurrentSemesterArray(classes){
   for (let i = 0; i < currentSemesterClasses.length; i++){
-    classes = classes + currentSemesterClasses[i] + ", ";
+    classes = classes + currentSemesterClasses[i] + currentSemesterDetails[i] + ", ";
   }
 
   return classes;
@@ -1622,55 +1622,6 @@ var JohnsonReview =
 },
 ]
 
-
-/**
- * Calculates the difference in days between today and the date that is passed in the parameter. Returns the difference
- * @param {*} date: date of some day  
- */
-function computeDifference(date) {
-  let currentDate = Date.now();
-  date = Date.parse(date);
-  let difference = (date - currentDate)/1000/60/60/24;
-  if (Math.abs(difference) > 0 && Math.abs(difference) <= 1.5){
-    difference = Math.abs(difference);
-  }
-  console.log(difference);
-  return difference;
-}
-
-/**
- * Checks to see if the current date's month is the same as the month of the date that is passed as the parameter
- * @param {*} date: date of some day
- */
-function computeMonthDifference(date){
-  let currentDateMonth = new Date(Date.now()).getMonth();
-  let dateMonth = new Date(date).getMonth();
-  let sameMonth = false;
-  
-  if (dateMonth == currentDateMonth){
-    sameMonth = true;
-  }
-  
-  return sameMonth;
-  
-}
-
-//-----------------------------------------------------------------------------------------------------------
-
-var SchoolEvents = 
-[
-  {
-    game: "Georgia State University vs Georgia Southern University at October 27th, ",
-    time: "11/25/2018"
-  },
-  {
-    game: "Georgia State University vs University of Georgia at December 15th,",
-    time: "12/21/2018"
-  }
-]
-
-
-
 // Random Fact Array
 var randomFactArr = [
   'Chik-fil-a is located on the first floor of Student Center West',
@@ -1807,6 +1758,13 @@ let currentSemesterClasses = [
   'databases',
   'web programming'
 ];
+//name, location, start and end time
+let currentSemesterDetails = [
+     'at Classroom South 206 from 5:30 pm to 7:15 pm',
+     'at Classroom South 104 from 12:45 pm to 2:30 pm',
+     'at Adherold learning center from 3:30 pm to 4:45 pm',
+     'at langdale 505 from 9:00 am to 10:45 am'
+]
 
 var reminderNumList = [0, 1, 2, 3, 4];
 
