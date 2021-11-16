@@ -17,7 +17,7 @@
     "ask-sdk": "^2.0.0",
     "ask-sdk-dynamodb-persistence-adapter": "^2.1.0",
     "aws-puppeteer-lambda": "^1.0.2",
-    "aws-sdk": "^2.339.0",
+    "aws-sdk": "^2.814.0",
     "puppeteer-core": "^1.10.0"
   }
 }
